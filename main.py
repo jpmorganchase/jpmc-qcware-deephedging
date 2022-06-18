@@ -25,7 +25,7 @@ _, train_batches = get_batches(jnp.array(S_train[0]), batch_size=hps.batch_size)
 
 # Model
 # Change model type from the available options in classical_models.py, quantum_models.py
-net = shared_simple_network()  #  ['simple_network', 'lstm_network', 'attention_network', 'ortho_simple_network', 'ortho_lstm_network', 'ortho_attention_network']
+net = ortho_attention_network()  #  ['simple_network', 'lstm_network', 'attention_network', 'ortho_simple_network', 'ortho_lstm_network', 'ortho_attention_network']
 opt = optax.adam(1E-3)
 key, init_key = jax.random.split(key)
 params, state, _ = net.init(init_key, (1, 31, 1))
