@@ -31,8 +31,12 @@ def simple_network(n_features: int = 16, n_layers: int = 3, layer_func: ModuleFn
       inputs = jnp.concatenate( (inputs,T), axis = 2)
       outputs, state = net.apply(params, state, key,inputs)
       return outputs, state
+      
+    def init_fn(key, inputs_shape):
+        params = net.init(key, (inputs_shape[0],inputs_shape[1],2*inputs_shape[2]))[0]
+        return params, None, inputs_shape
 
-    return ModuleFn(apply_fn, init=net.init)
+    return ModuleFn(apply_fn, init_fn)
 
 def recurrent_network(n_features: int =16, n_layers: int = 3, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
     """ Create a Recurrent Network.
@@ -133,7 +137,7 @@ def attention_layer(
     layout: str = 'butterfly',
     layer_func: ModuleFn = linear,
 ) -> ModuleFn:
-    """ Create an attention layer.
+    """ Create an Attention layer.
     
     Args:
         n_features: The number of features.
@@ -200,7 +204,7 @@ def timestep_layer():
   return ModuleFn(apply_fn, init=init_fn)
 
 def attention_network(n_features: int = 16, n_layers: int = 3, layer_func=linear,  **kwargs) -> ModuleFn:
-    """ Create a Transformer Network.
+    """ Create a Attention Network.
     
     Args:
         n_features: The number of features.

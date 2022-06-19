@@ -29,7 +29,7 @@ layer = linear
 net = simple_network(layer_func=layer)  #  ['simple_network', 'recurrent_network','lstm_network', 'attention_network']
 opt = optax.adam(1E-3)
 key, init_key = jax.random.split(key)
-params, state, _ = net.init(init_key, (1, 31, 2))
+params, state, _ = net.init(init_key, (1, hps.n_steps+1, 1))
 opt_state = opt.init(params)
 
 
