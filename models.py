@@ -25,10 +25,10 @@ def simple_network(n_features: int = 16, n_layers: int = 3, layer_func: ModuleFn
 
     def apply_fn(params, state, key, inputs, **kwargs):
       batch_size = inputs.shape[0]
-      a = jnp.arange(0,31,1, dtype='float32')
-      a = a[...,None]
-      a = jnp.array([a]*batch_size)
-      inputs = jnp.concatenate( (inputs,a), axis = 2)
+      T = jnp.arange(0,31,1, dtype='float32')
+      T = T[...,None]
+      T = jnp.array([T]*batch_size)
+      inputs = jnp.concatenate( (inputs,T), axis = 2)
       outputs, state = net.apply(params, state, key,inputs)
       return outputs, state
 
