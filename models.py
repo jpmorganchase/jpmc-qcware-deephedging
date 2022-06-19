@@ -9,7 +9,14 @@ log_softmax = elementwise(jax.nn.log_softmax)
 sigmoid = elementwise(jax.nn.sigmoid)
 
 
-def simple_network(n_features: int = 16, n_layers: int = 3, layer_func = linear, **kwargs):
+def simple_network(n_features: int = 16, n_layers: int = 3, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
+    """ Create a Simple Network.
+    
+    Args:
+        n_features: The number of features.
+        n_layers: The number of layers.
+        layer_func: The type of layers to use.
+    """
     preprocessing = [linear(n_features), sigmoid]
     features = n_layers * [layer_func(n_features), relu]
     postprocessing = [linear(1), sigmoid]
@@ -27,7 +34,14 @@ def simple_network(n_features: int = 16, n_layers: int = 3, layer_func = linear,
 
     return ModuleFn(apply_fn, init=net.init)
 
-def recurrent_network(n_features=16, n_layers: int = 3, layer_func=linear, **kwargs):
+def recurrent_network(n_features: int =16, n_layers: int = 3, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
+    """ Create a Recurrent Network.
+    
+    Args:
+        n_features: The number of features.
+        n_layers: The number of layers.
+        layer_func: The type of layers to use.
+    """
 
     preprocessing = [linear(n_features), sigmoid]
     features = n_layers * [layer_func(n_features), relu]
@@ -56,7 +70,13 @@ def recurrent_network(n_features=16, n_layers: int = 3, layer_func=linear, **kwa
     return qnn.ModuleFn(apply_fn, init_fn)
 
 
-def lstm_cell(n_features=16, layer_func=linear, **kwargs):
+def lstm_cell(n_features: int =16,  layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
+    """ Create an LSTM Cell.
+    
+    Args:
+        n_features: The number of features.
+        layer_func: The type of layers to use.
+    """
 
     _linear = layer_func(n_features=n_features, with_bias=True)
     
@@ -92,7 +112,13 @@ def lstm_cell(n_features=16, layer_func=linear, **kwargs):
         return outputs, state
     return qnn.ModuleFn(apply_fn, init_fn)
 
-def lstm_network(n_features=16,layer_func=linear, **kwargs):
+def lstm_network(n_features: int =16, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
+    """ Create an LSTM Network.
+    
+    Args:
+        n_features: The number of features.
+        layer_func: The type of layers to use.
+    """
     preprocessing = [linear(n_features), sigmoid]
     features = [lstm_cell(layer_func)]
     postprocessing = [linear(1), sigmoid]
@@ -105,16 +131,18 @@ def lstm_network(n_features=16,layer_func=linear, **kwargs):
 def attention_layer(
     n_features: int,
     layout: str = 'butterfly',
+    layer_func: ModuleFn = linear,
 ) -> ModuleFn:
     """ Create an attention layer.
     
     Args:
         n_features: The number of features.
         layout: The layout of the RBS gates.
+        layer_func: The type of layers to use.
     """
     norm = qnn.layer_norm()
-    to_w = qnn.linear(n_features, with_bias=False)
-    to_v = qnn.linear(n_features, with_bias=True)
+    to_w = layer_func(n_features, with_bias=False)
+    to_v = layer_func(n_features, with_bias=True)
     def apply_fn(params,state, key, inputs, **kwargs):
         
         n_params = qnn.get_params_by_scope('norm', params)
@@ -155,6 +183,8 @@ def attention_layer(
     return ModuleFn(apply_fn, init=init_fn)
 
 def timestep_layer():
+  """ Creates positional embedding of timesteps.
+  """  
 
   def init_fn(key, inputs_shape):
     params = {}
@@ -169,7 +199,14 @@ def timestep_layer():
 
   return ModuleFn(apply_fn, init=init_fn)
 
-def attention_network(n_features: int = 16, n_layers: int = 3, layer_func=linear,  **kwargs):
+def attention_network(n_features: int = 16, n_layers: int = 3, layer_func=linear,  **kwargs) -> ModuleFn:
+    """ Create a Transformer Network.
+    
+    Args:
+        n_features: The number of features.
+        n_layers: The number of layers.
+        layer_func: The type of layers to use.
+    """
     n_features = 8
     preprocessing = [linear(n_features), sigmoid, timestep_layer()]
     features = n_layers * [layer_func(n_features), sigmoid, ] +  [attention_layer(n_features, layer_func)]
