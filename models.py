@@ -62,7 +62,7 @@ def recurrent_network(n_features: int =16, n_layers: int = 3, layer_func: Module
         def cell_fn(prev_outputs, inputs):
             inp = inputs[None,...]
             inp = jnp.concatenate([prev_outputs, inp], axis=-1)
-            delta = net.apply(params, None, None, inp)[0]
+            delta = net.apply(params, None, key, inp)[0]
             return delta, delta
         
         prev_state = jnp.zeros((1,inputs.shape[0],inputs.shape[-1]))
@@ -99,10 +99,10 @@ def lstm_cell(n_features: int =16,  layer_func: ModuleFn = linear, **kwargs) -> 
         def cell_fn(prev_state, inputs):
             prev_hidden, prev_cell = prev_state
             x_and_h = jnp.concatenate([inputs, prev_hidden], axis=-1)
-            i = _linear.apply(params['i'], None, None, x_and_h)[0]
-            g = _linear.apply(params['g'], None, None, x_and_h)[0]
-            f = _linear.apply(params['f'], None, None, x_and_h)[0]
-            o = _linear.apply(params['o'], None, None, x_and_h)[0]
+            i = _linear.apply(params['i'], None, key, x_and_h)[0]
+            g = _linear.apply(params['g'], None, key, x_and_h)[0]
+            f = _linear.apply(params['f'], None, key, x_and_h)[0]
+            o = _linear.apply(params['o'], None, key, x_and_h)[0]
             # i = input, g = cell_gate, f = forget_gate, o = output_gate
             f = jax.nn.sigmoid(f + 1) 
             c = f * prev_cell + jax.nn.sigmoid(i) * jnp.tanh(g)
@@ -124,7 +124,7 @@ def lstm_network(n_features: int =16, layer_func: ModuleFn = linear, **kwargs) -
         layer_func: The type of layers to use.
     """
     preprocessing = [linear(n_features), sigmoid]
-    features = [lstm_cell(layer_func)]
+    features = [lstm_cell(layer_func=layer_func)]
     postprocessing = [linear(1), sigmoid]
     layers = preprocessing + features + postprocessing
     net = sequential(*layers)
@@ -155,7 +155,7 @@ def attention_layer(
         #norm_outputs = norm.apply(n_params, None, None, inputs)[0]
         causal_mask = jnp.tril(jnp.ones((inputs.shape[1], inputs.shape[1])))
         case = 0
-        dots = jnp.matmul(to_w.apply(w_params,None, None, inputs)[0],
+        dots = jnp.matmul(to_w.apply(w_params,None, key, inputs)[0],
                         inputs.transpose(0, 2, 1))
         if case == 0:
             dots = jnp.where(causal_mask, dots, -jnp.inf)
@@ -165,7 +165,7 @@ def attention_layer(
             w /= jnp.sum(w, axis=-1, keepdims=True)
         elif case == 2:
             w = causal_mask / causal_mask.sum(axis=-1)
-        v = to_v.apply(v_params,None, None, inputs)[0]
+        v = to_v.apply(v_params,None, key, inputs)[0]
         outputs = jnp.einsum('...ij,...jk->...ik',w, v)
         outputs += inputs
         #outputs = norm.apply(n_params, None, None, outputs)[0]
