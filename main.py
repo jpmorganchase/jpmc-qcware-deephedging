@@ -30,13 +30,13 @@ elif hps.layer_type=='noisy_ortho':
   layer_func = partial(ortho_linear_noisy,noise_scale=0.01)
 
 if hps.model_type == 'simple':
-  net = simple_network(layer_func=layer_func)
+  net = simple_network(hps=hps, layer_func=layer_func)
 elif hps.model_type == 'recurrent':
-  net = recurrent_network(layer_func=layer_func)
+  net = recurrent_network(hps=hps, layer_func=layer_func)
 elif hps.model_type == 'lstm':
-  net = lstm_network(layer_func=layer_func)
+  net = lstm_network(hps=hps, layer_func=layer_func)
 elif hps.model_type == 'attention':
-  net = attention_network(layer_func=layer_func)
+  net = attention_network(hps=hps, layer_func=layer_func)
 
 opt = optax.adam(1E-3)
 key, init_key = jax.random.split(key)
