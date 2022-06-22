@@ -46,7 +46,7 @@ loss_metric = entropy_loss
 
 # Training
 
-train_fn, loss_fn = build_train_fn(hps, net, opt, loss_metric, epsilon=hps.epsilon)
+train_fn, loss_fn = build_train_fn(hps, net, opt, loss_metric)
 num_epochs = 100
 loss = 0.0    
 with trange(1, num_epochs+1) as t:

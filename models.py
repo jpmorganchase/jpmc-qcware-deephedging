@@ -2,6 +2,7 @@ import jax
 from jax import numpy as jnp
 import qnn
 from qnn import ModuleFn, elementwise, linear, sequential, ortho_linear, ortho_linear_noisy
+from utils import HyperParams
 
 relu = elementwise(jax.nn.relu)
 gelu = elementwise(jax.nn.gelu)
@@ -9,7 +10,7 @@ log_softmax = elementwise(jax.nn.log_softmax)
 sigmoid = elementwise(jax.nn.sigmoid)
 
 
-def simple_network(n_features: int = 16, n_layers: int = 3, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
+def simple_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
     """ Create a Simple Network.
     
     Args:
@@ -17,8 +18,8 @@ def simple_network(n_features: int = 16, n_layers: int = 3, layer_func: ModuleFn
         n_layers: The number of layers.
         layer_func: The type of layers to use.
     """
-    preprocessing = [linear(n_features), sigmoid]
-    features = n_layers * [layer_func(n_features), relu]
+    preprocessing = [linear(hps.n_features), sigmoid]
+    features = hps.n_layers * [layer_func(hps.n_features), relu]
     postprocessing = [linear(1), sigmoid]
     layers = preprocessing + features + postprocessing
     net = sequential(*layers)
@@ -38,7 +39,7 @@ def simple_network(n_features: int = 16, n_layers: int = 3, layer_func: ModuleFn
 
     return ModuleFn(apply_fn, init_fn)
 
-def recurrent_network(n_features: int =16, n_layers: int = 3, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
+def recurrent_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
     """ Create a Recurrent Network.
     
     Args:
@@ -47,8 +48,8 @@ def recurrent_network(n_features: int =16, n_layers: int = 3, layer_func: Module
         layer_func: The type of layers to use.
     """
 
-    preprocessing = [linear(n_features), sigmoid]
-    features = n_layers * [layer_func(n_features), relu]
+    preprocessing = [linear(hps.n_features), sigmoid]
+    features = hps.n_layers * [layer_func(hps.n_features), relu]
     postprocessing = [linear(1), sigmoid]
     layers = preprocessing + features + postprocessing
     net = sequential(*layers)
@@ -74,7 +75,7 @@ def recurrent_network(n_features: int =16, n_layers: int = 3, layer_func: Module
     return qnn.ModuleFn(apply_fn, init_fn)
 
 
-def lstm_cell(n_features: int =16,  layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
+def lstm_cell(hps: HyperParams,  layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
     """ Create an LSTM Cell.
     
     Args:
@@ -82,7 +83,7 @@ def lstm_cell(n_features: int =16,  layer_func: ModuleFn = linear, **kwargs) -> 
         layer_func: The type of layers to use.
     """
 
-    _linear = layer_func(n_features=n_features, with_bias=True)
+    _linear = layer_func(n_features=hps.n_features, with_bias=True)
     
     def init_fn(key, inputs_shape):
         keys = jax.random.split(key, num = 4)    
@@ -116,14 +117,14 @@ def lstm_cell(n_features: int =16,  layer_func: ModuleFn = linear, **kwargs) -> 
         return outputs, state
     return qnn.ModuleFn(apply_fn, init_fn)
 
-def lstm_network(n_features: int =16, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
+def lstm_network(hps: HyperParams,layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
     """ Create an LSTM Network.
     
     Args:
         n_features: The number of features.
         layer_func: The type of layers to use.
     """
-    preprocessing = [linear(n_features), sigmoid]
+    preprocessing = [linear(hps.n_features), sigmoid]
     features = [lstm_cell(layer_func=layer_func)]
     postprocessing = [linear(1), sigmoid]
     layers = preprocessing + features + postprocessing
@@ -133,20 +134,19 @@ def lstm_network(n_features: int =16, layer_func: ModuleFn = linear, **kwargs) -
 
 
 def attention_layer(
-    n_features: int,
-    layout: str = 'butterfly',
+    hps: HyperParams,
     layer_func: ModuleFn = linear,
 ) -> ModuleFn:
     """ Create an Attention layer.
     
     Args:
-        n_features: The number of features.
+        hps.n_features: The number of features.
         layout: The layout of the RBS gates.
         layer_func: The type of layers to use.
     """
     norm = qnn.layer_norm()
-    to_w = layer_func(n_features, with_bias=False)
-    to_v = layer_func(n_features, with_bias=True)
+    to_w = layer_func(hps.n_features, with_bias=False)
+    to_v = layer_func(hps.n_features, with_bias=True)
     def apply_fn(params,state, key, inputs, **kwargs):
         
         n_params = qnn.get_params_by_scope('norm', params)
@@ -181,7 +181,7 @@ def attention_layer(
         params.update(qnn.add_scope_to_params('norm', n_params))
         params.update(qnn.add_scope_to_params('weights', w_params))
         params.update(qnn.add_scope_to_params('value', v_params))
-        return params, None, inputs_shape[:-1] + (n_features, )
+        return params, None, inputs_shape[:-1] + (hps.n_features, )
 
 
     return ModuleFn(apply_fn, init=init_fn)
@@ -203,7 +203,7 @@ def timestep_layer():
 
   return ModuleFn(apply_fn, init=init_fn)
 
-def attention_network(n_features: int = 16, n_layers: int = 3, layer_func=linear,  **kwargs) -> ModuleFn:
+def attention_network(hps: HyperParams, layer_func=linear,  **kwargs) -> ModuleFn:
     """ Create a Attention Network.
     
     Args:
@@ -211,9 +211,8 @@ def attention_network(n_features: int = 16, n_layers: int = 3, layer_func=linear
         n_layers: The number of layers.
         layer_func: The type of layers to use.
     """
-    n_features = 8
-    preprocessing = [linear(n_features), sigmoid, timestep_layer()]
-    features = n_layers * [layer_func(n_features), sigmoid, ] +  [attention_layer(n_features, layer_func)]
+    preprocessing = [linear(hps.n_features), sigmoid, timestep_layer()]
+    features = hps.n_layers * [layer_func(hps.n_features), sigmoid, ] +  [attention_layer(hps.n_features, layer_func)]
     postprocessing =  [linear(1), sigmoid] 
     layers = preprocessing + features + postprocessing
     net = sequential(*layers)

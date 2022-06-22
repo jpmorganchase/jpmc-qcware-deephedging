@@ -22,11 +22,11 @@ def build_train_fn(
             axis=1,
         )
         wealths = wealth_init
-        wealths -= jnp.einsum('ijk,ijk->ik', jnp.abs(deltas), inputs) * epsilon
+        wealths -= jnp.einsum('ijk,ijk->ik', jnp.abs(deltas), inputs) * hps.epsilon
         wealths -= jnp.einsum('ijk,ijk->ik', deltas, inputs)
         wealths += jnp.einsum('ijk,ijk->ik', outputs[:, [-1], :], inputs[:, [-1], :])
         wealths -= jnp.maximum(inputs[:, -1] - strike_price, 0.0)
-        loss = loss_metric(wealths)
+        loss = loss_metric(hps, wealths)
         return loss, (state, wealths, deltas, outputs)
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)

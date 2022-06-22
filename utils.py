@@ -17,7 +17,7 @@ class HyperParams:
   dividend: float = 0.0
   model_type: str = 'simple'
   layer_type: str = 'linear'
-  hidden_dim: int = 16
+  n_features: int = 16
   n_layers: int = 3
   noise_scale: float = 0.01
   loss_param: float = 1.0
