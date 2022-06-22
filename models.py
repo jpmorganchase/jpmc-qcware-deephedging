@@ -88,11 +88,14 @@ def lstm_cell(hps: HyperParams,  layer_func: ModuleFn = linear, **kwargs) -> Mod
     def init_fn(key, inputs_shape):
         keys = jax.random.split(key, num = 4)    
         params = {}
-        params['i'] = _linear.init(keys[0],  (inputs_shape[0],inputs_shape[1],2*inputs_shape[2]))[0]
-        params['g'] = _linear.init(keys[1],  (inputs_shape[0],inputs_shape[1],2*inputs_shape[2]))[0]
-        params['f'] = _linear.init(keys[2],  (inputs_shape[0],inputs_shape[1],2*inputs_shape[2]))[0]
-        params['o'] = _linear.init(keys[3],  (inputs_shape[0],inputs_shape[1],2*inputs_shape[2]))[0]
-
+        i_params = _linear.init(keys[0],  (inputs_shape[0],inputs_shape[1],2*inputs_shape[2]))[0]
+        g_params = _linear.init(keys[1],  (inputs_shape[0],inputs_shape[1],2*inputs_shape[2]))[0]
+        f_params = _linear.init(keys[2],  (inputs_shape[0],inputs_shape[1],2*inputs_shape[2]))[0]
+        o_params = _linear.init(keys[3],  (inputs_shape[0],inputs_shape[1],2*inputs_shape[2]))[0]
+        params.update(qnn.add_scope_to_params('i', i_params))
+        params.update(qnn.add_scope_to_params('g', g_params))
+        params.update(qnn.add_scope_to_params('f', f_params))
+        params.update(qnn.add_scope_to_params('o', o_params))
         return params, None, inputs_shape
     
 
@@ -100,10 +103,14 @@ def lstm_cell(hps: HyperParams,  layer_func: ModuleFn = linear, **kwargs) -> Mod
         def cell_fn(prev_state, inputs):
             prev_hidden, prev_cell = prev_state
             x_and_h = jnp.concatenate([inputs, prev_hidden], axis=-1)
-            i = _linear.apply(params['i'], None, key, x_and_h)[0]
-            g = _linear.apply(params['g'], None, key, x_and_h)[0]
-            f = _linear.apply(params['f'], None, key, x_and_h)[0]
-            o = _linear.apply(params['o'], None, key, x_and_h)[0]
+            i_params = qnn.get_params_by_scope('i', params)
+            g_params = qnn.get_params_by_scope('g', params)
+            f_params = qnn.get_params_by_scope('f', params)
+            o_params = qnn.get_params_by_scope('o', params)
+            i = _linear.apply(i_params, None, key, x_and_h)[0]
+            g = _linear.apply(g_params, None, key, x_and_h)[0]
+            f = _linear.apply(f_params, None, key, x_and_h)[0]
+            o = _linear.apply(o_params, None, key, x_and_h)[0]
             # i = input, g = cell_gate, f = forget_gate, o = output_gate
             f = jax.nn.sigmoid(f + 1) 
             c = f * prev_cell + jax.nn.sigmoid(i) * jnp.tanh(g)
