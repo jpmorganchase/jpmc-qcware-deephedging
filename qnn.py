@@ -310,9 +310,11 @@ def orthogonalize_weights(weights):
 def orthogonalize_params(params):
   """Take a dictionary of params and orthogonalize the weights
   """
-  for key in params.keys():
-    if params[key] != None:
-      params[key]['w'] = orthogonalize_weights(params[key]['w'])
+  for k1 in params.keys():
+    if params[k1] != None:
+      for k2 in params[k1].keys():
+        if k2.split('/')[-1]=='w':
+          params[k1][k2] = orthogonalize_weights(params[k1][k2])
 
   return params
 
