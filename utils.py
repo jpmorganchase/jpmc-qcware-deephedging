@@ -19,7 +19,7 @@ class HyperParams:
   layer_type: str = 'linear'
   hidden_dim: int = 16
   n_layers: int = 3
-  noise_scale: float = 1
+  noise_scale: float = 0.01
   loss_param: float = 1.0
   batch_size = 256
   share_strategy: bool = False
