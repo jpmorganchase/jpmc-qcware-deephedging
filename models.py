@@ -125,7 +125,7 @@ def lstm_network(hps: HyperParams,layer_func: ModuleFn = linear, **kwargs) -> Mo
         layer_func: The type of layers to use.
     """
     preprocessing = [linear(hps.n_features), sigmoid]
-    features = [lstm_cell(layer_func=layer_func)]
+    features = [lstm_cell(hps=hps, layer_func=layer_func)]
     postprocessing = [linear(1), sigmoid]
     layers = preprocessing + features + postprocessing
     net = sequential(*layers)
@@ -212,7 +212,7 @@ def attention_network(hps: HyperParams, layer_func=linear,  **kwargs) -> ModuleF
         layer_func: The type of layers to use.
     """
     preprocessing = [linear(hps.n_features), sigmoid, timestep_layer()]
-    features = hps.n_layers * [layer_func(hps.n_features), sigmoid, ] +  [attention_layer(hps.n_features, layer_func)]
+    features = hps.n_layers * [layer_func(hps.n_features), sigmoid, ] +  [attention_layer(hps=hps, layer_func=layer_func)]
     postprocessing =  [linear(1), sigmoid] 
     layers = preprocessing + features + postprocessing
     net = sequential(*layers)
