@@ -17,14 +17,12 @@ key = jax.random.PRNGKey(seed)
 hps = HyperParams()
 
 # Data
-S = gen_paths(n_paths=12000, n_steps=hps.n_steps, seed=0)
+S = gen_paths(n_paths=120000, n_steps=hps.n_steps, seed=0)
 [S_train, S_test] = train_test_split([S], test_size=0.2)
 _, train_batches = get_batches(jnp.array(S_train[0]), batch_size=hps.batch_size)
 
 
-
-
-if hps.layer_type== 'linear':
+if hps.layer_type in ['linear','linear_svb']:
   layer_func = linear
 elif hps.layer_type=='ortho':
   layer_func = ortho_linear
@@ -48,8 +46,8 @@ loss_metric = entropy_loss
 
 # Training
 
-train_fn, loss_fn = build_train_fn(net, opt, loss_metric, epsilon=hps.epsilon)
-num_epochs = 150
+train_fn, loss_fn = build_train_fn(hps, net, opt, loss_metric, epsilon=hps.epsilon)
+num_epochs = 100
 loss = 0.0    
 with trange(1, num_epochs+1) as t:
   for epoch in t:

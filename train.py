@@ -1,8 +1,9 @@
 import jax
 import optax
 from jax import numpy as jnp
-
+from qnn import orthogonalize_params
 def build_train_fn(
+    hps,
     net,
     opt,
     loss_metric,
@@ -36,6 +37,8 @@ def build_train_fn(
                 outputs)), grads = grad_fn(params, state, key, inputs)
         updates, opt_state = opt.update(grads, opt_state, params)
         params = optax.apply_updates(params, updates)
+        if hps.layer_type == 'linear_svb':
+            params = orthogonalize_params(params)
         return params, state, opt_state, loss, (wealths, deltas, outputs)
 
     return train_fn, loss_fn
