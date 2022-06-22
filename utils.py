@@ -16,7 +16,7 @@ class HyperParams:
   risk_free: float = 0.0
   dividend: float = 0.0
   model_type: str = 'simple'
-  q_model_type: str = 'noisy'
+  layer_type: str = 'linear'
   hidden_dim: int = 16
   n_layers: int = 3
   noise_scale: float = 1
