@@ -295,6 +295,27 @@ def sequential(*modules: List[ModuleFn], ) -> ModuleFn:
 
     return ModuleFn(apply_fn, init=init_fn)
 
+def orthogonalize_weights(weights):
+    """Take the current weight matrices for each layer, apply SVD decomposition on each one, 
+    then transform the singular values, and finally recompose to make the weight matrix orthogonal.
+    U,s,V = SVD(W). then all singular values must be ~1. 
+    Output : update the self.weights matrices. 
+    Reference : Orthogonal Deep Neural Networks, K.Juia et al. 2019"""
+    epsilon = 0.5
+    U, s, V = jnp.linalg.svd(weights, full_matrices=False) 
+    s = jnp.clip(s, 1/(1+epsilon), 1+epsilon) 
+    weights = jnp.dot(U,jnp.dot(jnp.diag(s),V)) #reform with the new singular values
+    return weights
+
+def orthogonalize_params(params):
+  """Take a dictionary of params and orthogonalize the weights
+  """
+  for key in params.keys():
+    if params[key] != None:
+      params[key]['w'] = orthogonalize_weights(params[key]['w'])
+
+  return params
+
 
 def _make_orthogonal_fn(rbs_idxs, size):
     num_thetas = sum(map(len, rbs_idxs))
