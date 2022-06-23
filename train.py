@@ -2,6 +2,8 @@ import jax
 import optax
 from jax import numpy as jnp
 from qnn import orthogonalize_params
+
+
 def build_train_fn(
     hps,
     net,
@@ -22,9 +24,11 @@ def build_train_fn(
             axis=1,
         )
         wealths = wealth_init
-        wealths -= jnp.einsum('ijk,ijk->ik', jnp.abs(deltas), inputs) * hps.epsilon
+        wealths -= jnp.einsum('ijk,ijk->ik',
+                              jnp.abs(deltas), inputs) * hps.epsilon
         wealths -= jnp.einsum('ijk,ijk->ik', deltas, inputs)
-        wealths += jnp.einsum('ijk,ijk->ik', outputs[:, [-1], :], inputs[:, [-1], :])
+        wealths += jnp.einsum('ijk,ijk->ik',
+                              outputs[:, [-1], :], inputs[:, [-1], :])
         wealths -= jnp.maximum(inputs[:, -1] - strike_price, 0.0)
         loss = loss_metric(hps, wealths)
         return loss, (state, wealths, deltas, outputs)
