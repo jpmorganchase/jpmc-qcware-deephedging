@@ -1,8 +1,10 @@
+from typing import Any, TypeVar
 import jax
 from jax import numpy as jnp
 import qnn
-from qnn import ModuleFn, elementwise, linear, sequential, ortho_linear, ortho_linear_noisy
-from utils import HyperParams
+from qnn import ModuleFn, elementwise, linear, sequential
+
+HyperParams = TypeVar('HyperParams')
 
 relu = elementwise(jax.nn.relu)
 gelu = elementwise(jax.nn.gelu)

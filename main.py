@@ -1,12 +1,8 @@
 import jax
-import optax
 from jax import numpy as jnp
 import jax
-from functools import partial
 from tqdm import tqdm, trange
 
-from models import simple_network, recurrent_network, lstm_network, attention_network
-from qnn import linear, ortho_linear, ortho_linear_noisy
 from train import build_train_fn
 from loss_metrics import entropy_loss
 from data import gen_paths
@@ -23,22 +19,9 @@ S = gen_paths(hps, seed=0)
 _, train_batches = utils.get_batches(
     jnp.array(S_train[0]), batch_size=hps.batch_size)
 
-if hps.layer_type in ['linear', 'linear_svb']:
-    layer_func = linear
-elif hps.layer_type == 'ortho':
-    layer_func = ortho_linear
-elif hps.layer_type == 'noisy_ortho':
-    layer_func = partial(ortho_linear_noisy, noise_scale=0.01)
-
-if hps.model_type == 'simple':
-    net = simple_network(hps=hps, layer_func=layer_func)
-elif hps.model_type == 'recurrent':
-    net = recurrent_network(hps=hps, layer_func=layer_func)
-elif hps.model_type == 'lstm':
-    net = lstm_network(hps=hps, layer_func=layer_func)
-elif hps.model_type == 'attention':
-    net = attention_network(hps=hps, layer_func=layer_func)
-
+# Model
+layer_func = utils.make_layer(layer_type=hps.layer_type)
+net = utils.make_model(hps.model_type)(hps=hps, layer_func=layer_func)
 opt = utils.make_optimizer(optimizer=hps.optimizer,
                            learning_rate=hps.learning_rate)
 key, init_key = jax.random.split(key)

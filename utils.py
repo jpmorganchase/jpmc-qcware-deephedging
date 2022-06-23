@@ -2,6 +2,9 @@ from sklearn import model_selection
 from dataclasses import dataclass
 from jax import numpy as jnp
 from jax.tree_util import tree_map
+from qnn import ModuleFn
+import qnn
+import models
 import pickle
 import optax
 
@@ -20,6 +23,10 @@ OPTIMIZERS = [
     'rmsprop',
     'yogi',
 ]
+
+LAYERS = ['linear', 'linear_svb', 'ortho', 'noisy_ortho']
+
+MODELS = ['simple', 'recurrent', 'lstm', 'attention']
 
 
 @dataclass
@@ -74,6 +81,31 @@ def load_params(file_name):
         params = pickle.load(f)
         # convert NP arrays to Jax arrays
         return tree_map(lambda param: jnp.array(param), params)
+
+
+def make_layer(layer_type: str = 'linear') -> ModuleFn:
+    """ Creates a layer with the specified type. """
+    assert layer_type in LAYERS, f'{layer_type} is not a valid layer type. Choose from {LAYERS}'
+    if layer_type in ['linear', 'linear_svb']:
+        layer_func = qnn.linear
+    elif layer_type == 'ortho':
+        layer_func = qnn.ortho_linear
+    elif layer_type == 'noisy_ortho':
+        layer_func = qnn.ortho_linear_noisy
+    return layer_func
+
+def make_model(model_type: str = 'simple') -> ModuleFn:
+    """ Creates a model with the specified type. """
+    assert model_type in MODELS, f'{model_type} is not a valid model type. Choose from {MODELS}'
+    if model_type == 'simple':
+        model_func = models.simple_network
+    elif model_type == 'recurrent':
+        model_func = models.recurrent_network
+    elif model_type == 'lstm':
+        model_func = models.lstm_network
+    elif model_type == 'attention':
+        model_func = models.attention_network
+    return model_func
 
 
 def make_optimizer(optimizer: str = 'adam',
