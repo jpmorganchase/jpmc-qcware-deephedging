@@ -11,7 +11,26 @@ import utils
 
 seed = 42
 key = jax.random.PRNGKey(seed)
-hps = HyperParams()
+hps = HyperParams(S0=100,
+                  n_steps=30,
+                  n_paths=120000,
+                  strike_price=100,
+                  epsilon=0,
+                  sigma=0.2,
+                  risk_free=0,
+                  dividend=0,
+                  model_type='simple',
+                  layer_type='butterfly',
+                  n_features=16,
+                  n_layers=3,
+                  noise_scale=0.01,
+                  loss_param=1.0,
+                  batch_size=256,
+                  test_size=0.2,
+                  optimizer='adam',
+                  learning_rate=1E-3,
+                  num_epochs=100
+                  )
 
 # Data
 S = gen_paths(hps, seed=0)

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from jax import numpy as jnp
 from jax.tree_util import tree_map
 from qnn import ModuleFn
+from functools import partial
 import qnn
 import models
 import pickle
@@ -24,7 +25,7 @@ OPTIMIZERS = [
     'yogi',
 ]
 
-LAYERS = ['linear', 'linear_svb', 'ortho', 'noisy_ortho']
+LAYERS = ['linear', 'linear_svb', 'butterfly', 'noisy_butterfly', 'pyramid', 'noisy_pyramid']
 
 MODELS = ['simple', 'recurrent', 'lstm', 'attention']
 
@@ -45,8 +46,8 @@ class HyperParams:
     n_layers: int = 3
     noise_scale: float = 0.01
     loss_param: float = 1.0
-    batch_size = 256
-    test_size = float = 0.2
+    batch_size: int = 256
+    test_size: float = 0.2
     optimizer: str = 'adam'
     learning_rate: float = 1E-3
     num_epochs: int = 100
@@ -88,10 +89,10 @@ def make_layer(layer_type: str = 'linear') -> ModuleFn:
     assert layer_type in LAYERS, f'{layer_type} is not a valid layer type. Choose from {LAYERS}'
     if layer_type in ['linear', 'linear_svb']:
         layer_func = qnn.linear
-    elif layer_type == 'ortho':
-        layer_func = qnn.ortho_linear
-    elif layer_type == 'noisy_ortho':
-        layer_func = qnn.ortho_linear_noisy
+    elif layer_type in ['pyramid', 'butterfly']:
+        layer_func = partial(qnn.ortho_linear, layout = layer_type)
+    elif layer_type in ['noisy_pyramid', 'noisy_butterfly']:
+        layer_func = partial(qnn.ortho_linear_noisy, layout = layer_type)
     return layer_func
 
 def make_model(model_type: str = 'simple') -> ModuleFn:
