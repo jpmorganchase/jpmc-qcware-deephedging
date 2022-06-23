@@ -40,7 +40,7 @@ def get_params_by_scope(scope, params):
 
 def constant(val: float, ) -> InitializerFn:
     """ Initialize with a constant value. 
-    
+
     Args:
         val: The value to initialize with.
     """
@@ -81,7 +81,7 @@ def normal(
     std: float = 1.,
 ) -> InitializerFn:
     """ Initialize with a normal distribution.
-    
+
     Args:
         mean: The mean of the normal distribution.
         std: The standard deviation of the normal distribution.
@@ -99,7 +99,7 @@ def truncated_normal(
     std: float = 1.,
 ) -> InitializerFn:
     """ Initialize with a truncated normal distribution.
-    
+
     Args:
         mean: The mean of the truncated normal distribution.
         std: The standard deviation of the truncated normal distribution.
@@ -160,7 +160,7 @@ def haiku_wrapper(layer_fn):
 
 def elementwise(elementwise_fn: Callable[[Array], Array], ) -> ModuleFn:
     """ Create an elementwise layer from a JAX function. 
-        
+
         Args:
             elementwise_fn: The JAX function to apply to each element.
     """
@@ -204,7 +204,6 @@ def linear(
     return ModuleFn(apply_fn, init=init_fn)
 
 
-
 def layer_norm(
     with_scale: bool = True,
     with_bias: bool = True,
@@ -212,7 +211,7 @@ def layer_norm(
     b_init: Optional[InitializerFn] = None,
 ) -> ModuleFn:
     """ Create a normalization layer. 
-    
+
     Args:
         with_scale: Whether to use a scale parameter.
         with_bias: Whether to include a bias term.
@@ -295,6 +294,7 @@ def sequential(*modules: List[ModuleFn], ) -> ModuleFn:
 
     return ModuleFn(apply_fn, init=init_fn)
 
+
 def orthogonalize_weights(weights):
     """Take the current weight matrices for each layer, apply SVD decomposition on each one, 
     then transform the singular values, and finally recompose to make the weight matrix orthogonal.
@@ -302,21 +302,23 @@ def orthogonalize_weights(weights):
     Output : update the self.weights matrices. 
     Reference : Orthogonal Deep Neural Networks, K.Juia et al. 2019"""
     epsilon = 0.5
-    U, s, V = jnp.linalg.svd(weights, full_matrices=False) 
-    s = jnp.clip(s, 1/(1+epsilon), 1+epsilon) 
-    weights = jnp.dot(U,jnp.dot(jnp.diag(s),V)) #reform with the new singular values
+    U, s, V = jnp.linalg.svd(weights, full_matrices=False)
+    s = jnp.clip(s, 1/(1+epsilon), 1+epsilon)
+    # reform with the new singular values
+    weights = jnp.dot(U, jnp.dot(jnp.diag(s), V))
     return weights
 
-def orthogonalize_params(params):
-  """Take a dictionary of params and orthogonalize the weights
-  """
-  for k1 in params.keys():
-    if params[k1] != None:
-      for k2 in params[k1].keys():
-        if k2.split('/')[-1]=='w':
-          params[k1][k2] = orthogonalize_weights(params[k1][k2])
 
-  return params
+def orthogonalize_params(params):
+    """Take a dictionary of params and orthogonalize the weights
+    """
+    for k1 in params.keys():
+        if params[k1] != None:
+            for k2 in params[k1].keys():
+                if k2.split('/')[-1] == 'w':
+                    params[k1][k2] = orthogonalize_weights(params[k1][k2])
+
+    return params
 
 
 def _make_orthogonal_fn(rbs_idxs, size):
@@ -526,9 +528,10 @@ def ortho_linear(
 
     return ModuleFn(apply_fn, init=init_fn)
 
+
 def ortho_linear_noisy(
     n_features: int,
-    noise_scale: float=0.1,
+    noise_scale: float = 0.1,
     layout: Union[str, List[List[Tuple[int, int]]]] = 'butterfly',
     normalize_inputs: bool = False,
     normalize_outputs: bool = True,
@@ -771,4 +774,3 @@ def variational_conv(n_layers, data_reupload=False):
         return outputs, state
 
     return ModuleFn(apply_fn, init=init_fn)
-
