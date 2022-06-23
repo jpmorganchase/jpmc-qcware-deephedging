@@ -25,10 +25,21 @@ OPTIMIZERS = [
     'yogi',
 ]
 
-LAYERS = ['linear', 'linear_svb', 'butterfly',
-          'noisy_butterfly', 'pyramid', 'noisy_pyramid']
+LAYERS = [
+    'linear',
+    'linear_svb',
+    'butterfly',
+    'noisy_butterfly',
+    'pyramid',
+    'noisy_pyramid'
+]
 
-MODELS = ['simple', 'recurrent', 'lstm', 'attention']
+MODELS = [
+    'simple',
+    'recurrent',
+    'lstm',
+    'attention'
+]
 
 
 @dataclass
