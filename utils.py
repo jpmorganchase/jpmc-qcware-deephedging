@@ -92,7 +92,7 @@ def make_layer(layer_type: str = 'linear') -> ModuleFn:
     elif layer_type in ['pyramid', 'butterfly']:
         layer_func = partial(qnn.ortho_linear, layout = layer_type)
     elif layer_type in ['noisy_pyramid', 'noisy_butterfly']:
-        layer_func = partial(qnn.ortho_linear_noisy, layout = layer_type)
+        layer_func = partial(qnn.ortho_linear_noisy, layout = layer_type.split('_')[1])
     return layer_func
 
 def make_model(model_type: str = 'simple') -> ModuleFn:
