@@ -9,12 +9,9 @@ def build_train_fn(
     net,
     opt,
     loss_metric,
-    epsilon=0.,
-    wealth_init=0.,
-    strike_price=100.,
 ):
     def loss_fn(params, state, key, inputs):
-        log_inputs = jnp.log(inputs / 100)
+        log_inputs = jnp.log(inputs / hps.strike_price)
         outputs, state = net.apply(params, state, key, log_inputs)
         deltas = jnp.concatenate(
             (
@@ -23,13 +20,15 @@ def build_train_fn(
             ),
             axis=1,
         )
-        wealths = wealth_init
-        wealths -= jnp.einsum('ijk,ijk->ik',
-                              jnp.abs(deltas), inputs) * hps.epsilon
+        wealths = hps.wealth_init
+        # transaction fee
+        wealths -= jnp.einsum('ijk,ijk->ik', jnp.abs(deltas), inputs) * hps.epsilon
+        # raw cost of buying hedging instruments
         wealths -= jnp.einsum('ijk,ijk->ik', deltas, inputs)
-        wealths += jnp.einsum('ijk,ijk->ik',
-                              outputs[:, [-1], :], inputs[:, [-1], :])
-        wealths -= jnp.maximum(inputs[:, -1] - strike_price, 0.0)
+        # value of the hedges at maturity
+        wealths += jnp.einsum('ijk,ijk->ik', outputs[:, [-1], :], inputs[:, [-1], :])
+        # value of the short call option
+        wealths -= jnp.maximum(inputs[:, -1] - hps.strike_price, 0.0)
         loss = loss_metric(hps, wealths)
         return loss, (state, wealths, deltas, outputs)
 

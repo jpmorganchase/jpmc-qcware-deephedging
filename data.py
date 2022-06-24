@@ -6,7 +6,7 @@ from utils import HyperParams
 
 def gen_paths(hps, seed=0):
     calculation_date = ql.Date.todaysDate()
-    maturity_date = ql.Date.todaysDate() + hps.n_steps
+    # maturity_date = ql.Date.todaysDate() + hps.n_steps
     day_count = ql.Actual365Fixed()  # Actual/Actual (ISDA)
     # Length of one time-step (as fraction of a year).
     dt = day_count.yearFraction(calculation_date, calculation_date + 1)

@@ -27,14 +27,14 @@ def simple_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) ->
     net = sequential(*layers)
 
     def apply_fn(params, state, key, inputs, **kwargs):
-        batch_size = inputs.shape[0]
-        T = jnp.arange(0, 31, 1, dtype='float32')
+        batch_size, n_steps, _ = inputs.shape
+        T = jnp.arange(0, n_steps, 1, dtype='float32')
         T = T[..., None]
         T = jnp.array([T]*batch_size)
         inputs = jnp.concatenate((inputs, T), axis=2)
         outputs, state = net.apply(params, state, key, inputs)
         return outputs, state
-
+      
     def init_fn(key, inputs_shape):
         params = net.init(
             key, (inputs_shape[0], inputs_shape[1], 2*inputs_shape[2]))[0]

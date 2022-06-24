@@ -52,6 +52,7 @@ class HyperParams:
     sigma: float = 0.2
     risk_free: float = 0.0
     dividend: float = 0.0
+    initial_wealth: float = 0.0
     model_type: str = 'simple'
     layer_type: str = 'linear'
     n_features: int = 16
