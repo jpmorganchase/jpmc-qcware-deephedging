@@ -130,3 +130,6 @@ dmypy.json
 
 # Zone Identifiers
 *Zone.Identifier
+
+# VS Code
+.vscode/
