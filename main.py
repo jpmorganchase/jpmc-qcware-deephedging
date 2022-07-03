@@ -32,7 +32,7 @@ hps = HyperParams(S0=100,
                   )
 
 # Data
-S = gen_paths(hps, seed=0)
+S = gen_paths(hps)
 [S_train, S_test] = utils.train_test_split([S], test_size=hps.test_size)
 _, train_batches = utils.get_batches(
     jnp.array(S_train[0]), batch_size=hps.batch_size)
