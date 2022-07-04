@@ -11,7 +11,7 @@ def build_train_fn(
     loss_metric,
 ):
     def loss_fn(params, state, key, inputs):
-        log_inputs = jnp.log(inputs / hps.strike_price)
+        log_inputs = jnp.log(inputs / hps.S0)
         outputs, state = net.apply(params, state, key, log_inputs)
         deltas = jnp.concatenate(
             (
@@ -20,7 +20,7 @@ def build_train_fn(
             ),
             axis=1,
         )
-        wealths = hps.wealth_init
+        wealths = hps.initial_wealth
         # transaction fee
         wealths -= jnp.einsum('ijk,ijk->ik', jnp.abs(deltas), inputs) * hps.epsilon
         # raw cost of buying hedging instruments
