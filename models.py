@@ -28,7 +28,7 @@ def simple_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) ->
 
     def apply_fn(params, state, key, inputs, **kwargs):
         batch_size = inputs.shape[0]
-        T = jnp.arange(0, 31, 1, dtype='float32')
+        T = jnp.arange(0, hps.n_steps+1, 1, dtype='float32')
         T = T[..., None]
         T = jnp.array([T]*batch_size)
         inputs = jnp.concatenate((inputs, T), axis=2)
