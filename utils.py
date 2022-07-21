@@ -45,6 +45,7 @@ MODELS = [
 @dataclass
 class HyperParams:
     S0: int = 100
+    discrete_path: bool = True
     n_steps: int = 30
     n_paths: int = 120000
     strike_price: int = 100
