@@ -5,7 +5,7 @@ import jax
 import numpy as np
 from jax import lax
 from jax import numpy as jnp
-
+import itertools
 # Typing
 # -----------------------------------------------------------------------------
 
@@ -400,6 +400,59 @@ def _make_orthogonal_fn(rbs_idxs, size):
 
     return orthogonal_fn
 
+def make_general_orthogonal_fn(rbs_idxs, size):
+    num_thetas = sum(map(len, rbs_idxs))
+    rbs_idxs = [list(map(list, rbs_idx)) for rbs_idx in rbs_idxs]
+    len_idxs = np.cumsum([0] + list(map(len, rbs_idxs)))
+
+    def _get_rbs_unitary(theta):
+        """ Returns the unitary matrix for a single RBS gate. """
+        cos_t, sin_t = jnp.cos(theta), jnp.sin(theta)
+        zeros = jnp.zeros_like(cos_t)
+        ones = jnp.ones_like(cos_t)
+        unitary = jnp.array([
+            [ones, zeros, zeros, zeros],
+            [zeros, cos_t, -sin_t, zeros],
+            [zeros, sin_t, cos_t, zeros],
+            [zeros, zeros, zeros, ones],
+        ])
+        unitary = unitary.transpose(*[*range(2, unitary.ndim), 0, 1])
+        return unitary
+
+    def _get_parallel_rbs_unitary(thetas):
+        """ Returns the unitary matrix for parallel RBS gates. """
+        unitaries = []
+        num_qubits = size
+        map_qubits = [[0, 2**q] for q in range(num_qubits)]
+        for i, idxs in enumerate(rbs_idxs):
+            idxs = sum(idxs, [])
+            sub_thetas = thetas[len_idxs[i]:len_idxs[i + 1]]
+            rbs_blocks = _get_rbs_unitary(sub_thetas)
+            eye_block = jnp.eye(2**(size - len(idxs)) , dtype=thetas.dtype)
+            unitary =  tensordot_unitary([*rbs_blocks, eye_block])
+            unitary_qubits = idxs + [
+            q for q in range(num_qubits) if q not in idxs
+            ]
+            permutation = np.argsort([
+            sum(binary)
+            for binary in itertools.product(*(map_qubits[q]
+                                              for q in unitary_qubits)) 
+            ])
+            unitary = unitary[permutation][:, permutation]
+            unitaries.append(unitary)
+        unitaries = jnp.stack(unitaries)
+        
+        return unitaries
+
+
+    def orthogonal_fn(thetas, precision=None):
+        """ Returns the unitary matrix for a sequence of parallel RBS gates. """
+        assert thetas.shape[0] == num_thetas, "Wrong number of thetas."
+        unitaries = _get_parallel_rbs_unitary(thetas)
+        unitary = jnp.linalg.multi_dot(unitaries[::-1], precision=precision)
+        return unitary
+
+    return orthogonal_fn
 
 def _get_pyramid_idxs(num_inputs, num_outputs):
     num_max = max(num_inputs, num_outputs)
