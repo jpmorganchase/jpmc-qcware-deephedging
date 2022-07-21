@@ -1,8 +1,9 @@
 from typing import Any, TypeVar
+import itertools
 import jax
 from jax import numpy as jnp
 import qnn
-from qnn import ModuleFn, elementwise, linear, sequential
+from qnn import ModuleFn, elementwise, linear, sequential, make_general_orthogonal_fn, _get_butterfly_idxs, _get_pyramid_idxs 
 
 HyperParams = TypeVar('HyperParams')
 
@@ -230,3 +231,73 @@ def attention_network(hps: HyperParams, layer_func=linear,  **kwargs) -> ModuleF
     layers = preprocessing + features + postprocessing
     net = sequential(*layers)
     return net
+
+def quantum_network(hps: HyperParams, **kwargs) -> ModuleFn:
+  
+    if hps.layer_type == 'butterfly':
+      rbs_idxs_fn = _get_butterfly_idxs
+    else:
+      rbs_idxs_fn = _get_pyramid_idxs
+    def encoding_fn(inputs):
+        T = inputs.shape[-1] - 1
+        deltas = inputs[:,1:]-inputs[:,:-1]
+        jumps = (deltas+1)/2
+        encodings = [jnp.ones((inputs.shape[0],2**T))/2**(T/2)]
+        for t in range(1,T+1):
+          past_jumps = jumps[...,:t]
+          future_jumps = jnp.array(list(itertools.product(*((T-t)*[[0,1]]))))
+          past_jumps = jnp.repeat(past_jumps[...,None,:], 2**(T-t), -2)
+          future_jumps = jnp.repeat(future_jumps[None,...], past_jumps.shape[0], 0)
+          superposition = jnp.concatenate([past_jumps, future_jumps],-1)
+          basis = 2**jnp.arange(T)
+          idxs = (superposition @ basis)
+          idxs = jax.lax.convert_element_type(idxs, jnp.int32)
+          encoding = jnp.zeros((idxs.shape[0], 2**T))
+          batch_idxs = jnp.repeat(jnp.arange(past_jumps.shape[0])[...,None],2**(T-t),-1)
+          idxs = jnp.stack([batch_idxs,idxs],-1).reshape(-1,2)
+          encoding = encoding.at[tuple(idxs.T)].set(1.)/2.**((T-t)/2)
+          encodings.append(encoding)
+        encodings = jnp.stack(encodings,1)
+        return encodings
+    def measurement_fn(probs):
+        T = probs.shape[-2] - 1
+        results = []
+        for t in range(0,T):
+          idxs = [sum(binary)
+                                for binary in itertools.product(*( [0, 2**q]
+                                                        for q in range(t,T)))
+                      ]
+          map_measurement = [ list(jnp.arange(2**t)+i) for i in idxs]
+          marginal =  probs[t][jnp.asarray(sum(map_measurement,[]))].reshape(2**(T-t),2**t).sum(-1)
+          support = jnp.linspace(0,1,2**(T-t))
+          result = jnp.dot(support,marginal)
+          results.append(result)
+        results.append(jnp.zeros_like(results[0]))
+        return jnp.stack(results)
+
+    def apply_fn(params, state, key, inputs, **kwargs):
+        inputs = inputs[...,0]
+        num_qubits = inputs.shape[-1] - 1
+        rbs_idxs = rbs_idxs_fn(num_qubits,num_qubits)
+        rbs_idxs = [list(map(list, rbs_idx)) for rbs_idx in rbs_idxs]
+        encodings = encoding_fn(inputs)
+        unitary_fn = make_general_orthogonal_fn(rbs_idxs, num_qubits)
+        unitary = jax.vmap(unitary_fn)(params)
+        output_state = jnp.einsum('ijk,lij->lik',unitary,encodings)
+        probs = jnp.einsum('ijk,ijk->ijk',output_state,output_state)
+        outputs = jax.vmap(measurement_fn)(probs)
+        outputs = outputs[...,None]
+        return outputs, state
+
+    def init_fn(key, inputs_shape):
+      key, init_key = jax.random.split(key)
+      num_qubits = inputs_shape[-2] - 1
+      rbs_idxs = rbs_idxs_fn(num_qubits,num_qubits)
+      rbs_idxs = [list(map(list, rbs_idx)) for rbs_idx in rbs_idxs]
+      num_params = len(sum(rbs_idxs, []))
+      params = jax.random.uniform(init_key, (inputs_shape[-2],num_params),
+                                                  minval=-jnp.pi,
+                                                  maxval=jnp.pi)
+      return params, None, inputs_shape
+
+    return ModuleFn(apply_fn, init_fn)
