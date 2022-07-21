@@ -14,8 +14,12 @@ def build_train_fn(
     strike_price=100.,
 ):
     def loss_fn(params, state, key, inputs):
-        log_inputs = jnp.log(inputs / 100)
-        outputs, state = net.apply(params, state, key, log_inputs)
+        if hps.discrete_path:
+            I = inputs - 100
+        else:
+            I = jnp.log(inputs / 100)
+        outputs, state = net.apply(params, state, key, I)
+        outputs = outputs.at[:,-1].set([0])
         deltas = jnp.concatenate(
             (
                 outputs[:, [0], :],
