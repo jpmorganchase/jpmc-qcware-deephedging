@@ -1,35 +1,27 @@
-from typing import Any, TypeVar
-import itertools
 import jax
 from jax import numpy as jnp
 import qnn
-from qnn import ModuleFn, elementwise, linear, sequential, make_general_orthogonal_fn, _get_butterfly_idxs, _get_pyramid_idxs 
-
-HyperParams = TypeVar('HyperParams')
+from qnn import ModuleFn, elementwise, linear, sequential
+import utils 
 
 relu = elementwise(jax.nn.relu)
 gelu = elementwise(jax.nn.gelu)
 log_softmax = elementwise(jax.nn.log_softmax)
 sigmoid = elementwise(jax.nn.sigmoid)
 
+def simple_network(n_steps:int, n_features: int, n_layers: int , layer_type: str, **kwargs) -> ModuleFn:
 
-def simple_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
-    """ Create a Simple Network.
+    layer_func = utils.make_layer(layer_type=layer_type)
 
-    Args:
-        n_features: The number of features.
-        n_layers: The number of layers.
-        layer_func: The type of layers to use.
-    """
-    preprocessing = [linear(hps.n_features), sigmoid]
-    features = hps.n_layers * [layer_func(hps.n_features), relu]
+    preprocessing = [linear(n_features), sigmoid]
+    features = n_layers * [layer_func(n_features), relu]
     postprocessing = [linear(1), sigmoid]
     layers = preprocessing + features + postprocessing
     net = sequential(*layers)
-
+ 
     def apply_fn(params, state, key, inputs, **kwargs):
         batch_size = inputs.shape[0]
-        T = jnp.arange(0, hps.n_steps+1, 1, dtype='float32')
+        T = jnp.arange(0, n_steps+1, 1, dtype='float32')
         T = T[..., None]
         T = jnp.array([T]*batch_size)
         inputs = jnp.concatenate((inputs, T), axis=2)
@@ -44,17 +36,12 @@ def simple_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) ->
     return ModuleFn(apply_fn, init_fn)
 
 
-def recurrent_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
-    """ Create a Recurrent Network.
+def recurrent_network(n_steps:int, n_features: int, n_layers: int , layer_type: str, **kwargs) -> ModuleFn:
 
-    Args:
-        n_features: The number of features.
-        n_layers: The number of layers.
-        layer_func: The type of layers to use.
-    """
+    layer_func = utils.make_layer(layer_type=layer_type)
 
-    preprocessing = [linear(hps.n_features), sigmoid]
-    features = hps.n_layers * [layer_func(hps.n_features), relu]
+    preprocessing = [linear(n_features), sigmoid]
+    features = n_layers * [layer_func(n_features), relu]
     postprocessing = [linear(1), sigmoid]
     layers = preprocessing + features + postprocessing
     net = sequential(*layers)
@@ -80,15 +67,9 @@ def recurrent_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs)
     return qnn.ModuleFn(apply_fn, init_fn)
 
 
-def lstm_cell(hps: HyperParams,  layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
-    """ Create an LSTM Cell.
-
-    Args:
-        n_features: The number of features.
-        layer_func: The type of layers to use.
-    """
-
-    _linear = layer_func(n_features=hps.n_features, with_bias=True)
+def lstm_cell(n_features:int ,  layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
+    
+    _linear = layer_func(n_features=n_features, with_bias=True)
 
     def init_fn(key, inputs_shape):
         keys = jax.random.split(key, num=4)
@@ -113,7 +94,6 @@ def lstm_cell(hps: HyperParams,  layer_func: ModuleFn = linear, **kwargs) -> Mod
             g = _linear.apply(_apply_params['g'], None, key, x_and_h)[0]
             f = _linear.apply(_apply_params['f'], None, key, x_and_h)[0]
             o = _linear.apply(_apply_params['o'], None, key, x_and_h)[0]
-            # i = input, g = cell_gate, f = forget_gate, o = output_gate
             f = jax.nn.sigmoid(f + 1)
             c = f * prev_cell + jax.nn.sigmoid(i) * jnp.tanh(g)
             h = jax.nn.sigmoid(o) * jnp.tanh(c)
@@ -127,15 +107,12 @@ def lstm_cell(hps: HyperParams,  layer_func: ModuleFn = linear, **kwargs) -> Mod
     return qnn.ModuleFn(apply_fn, init_fn)
 
 
-def lstm_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
-    """ Create an LSTM Network.
+def lstm_network(n_features: int, layer_type: str , **kwargs) -> ModuleFn:
+    
+    layer_func = utils.make_layer(layer_type=layer_type)
 
-    Args:
-        n_features: The number of features.
-        layer_func: The type of layers to use.
-    """
-    preprocessing = [linear(hps.n_features), sigmoid]
-    features = [lstm_cell(hps=hps, layer_func=layer_func)]
+    preprocessing = [linear(n_features), sigmoid]
+    features = [lstm_cell(n_features=n_features, layer_func=layer_func)]
     postprocessing = [linear(1), sigmoid]
     layers = preprocessing + features + postprocessing
     net = sequential(*layers)
@@ -143,19 +120,19 @@ def lstm_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) -> M
 
 
 def attention_layer(
-    hps: HyperParams,
+    n_features: int,
     layer_func: ModuleFn = linear,
 ) -> ModuleFn:
     """ Create an Attention layer.
 
     Args:
-        hps.n_features: The number of features.
+        n_features: The number of features.
         layout: The layout of the RBS gates.
         layer_func: The type of layers to use.
     """
     norm = qnn.layer_norm()
-    to_w = layer_func(hps.n_features, with_bias=False)
-    to_v = layer_func(hps.n_features, with_bias=True)
+    to_w = layer_func(n_features, with_bias=False)
+    to_v = layer_func(n_features, with_bias=True)
 
     def apply_fn(params, state, key, inputs, **kwargs):
 
@@ -192,7 +169,7 @@ def attention_layer(
         params.update(qnn.add_scope_to_params('norm', n_params))
         params.update(qnn.add_scope_to_params('weights', w_params))
         params.update(qnn.add_scope_to_params('value', v_params))
-        return params, None, inputs_shape[:-1] + (hps.n_features, )
+        return params, None, inputs_shape[:-1] + (n_features, )
 
     return ModuleFn(apply_fn, init=init_fn)
 
@@ -216,88 +193,14 @@ def timestep_layer():
     return ModuleFn(apply_fn, init=init_fn)
 
 
-def attention_network(hps: HyperParams, layer_func=linear,  **kwargs) -> ModuleFn:
-    """ Create a Attention Network.
+def attention_network(n_steps:int, n_features: int, n_layers: int , layer_type: str,  **kwargs) -> ModuleFn:
+    
+    layer_func = utils.make_layer(layer_type=layer_type)
 
-    Args:
-        n_features: The number of features.
-        n_layers: The number of layers.
-        layer_func: The type of layers to use.
-    """
-    preprocessing = [linear(hps.n_features), sigmoid, timestep_layer()]
-    features = hps.n_layers * [layer_func(hps.n_features), sigmoid, ] + [
-        attention_layer(hps=hps, layer_func=layer_func)]
+    preprocessing = [linear(n_features), sigmoid, timestep_layer()]
+    features = n_layers * [layer_func(n_features), sigmoid, ] + [
+        attention_layer(n_features=n_features, layer_func=layer_func)]
     postprocessing = [linear(1), sigmoid]
     layers = preprocessing + features + postprocessing
     net = sequential(*layers)
     return net
-
-def quantum_network(hps: HyperParams, **kwargs) -> ModuleFn:
-  
-    if hps.layer_type == 'butterfly':
-      rbs_idxs_fn = _get_butterfly_idxs
-    else:
-      rbs_idxs_fn = _get_pyramid_idxs
-    def encoding_fn(inputs):
-        T = inputs.shape[-1] - 1
-        deltas = inputs[:,1:]-inputs[:,:-1]
-        jumps = (deltas+1)/2
-        encodings = [jnp.ones((inputs.shape[0],2**T))/2**(T/2)]
-        for t in range(1,T+1):
-          past_jumps = jumps[...,:t]
-          future_jumps = jnp.array(list(itertools.product(*((T-t)*[[0,1]]))))
-          past_jumps = jnp.repeat(past_jumps[...,None,:], 2**(T-t), -2)
-          future_jumps = jnp.repeat(future_jumps[None,...], past_jumps.shape[0], 0)
-          superposition = jnp.concatenate([past_jumps, future_jumps],-1)
-          basis = 2**jnp.arange(T)
-          idxs = (superposition @ basis)
-          idxs = jax.lax.convert_element_type(idxs, jnp.int32)
-          encoding = jnp.zeros((idxs.shape[0], 2**T))
-          batch_idxs = jnp.repeat(jnp.arange(past_jumps.shape[0])[...,None],2**(T-t),-1)
-          idxs = jnp.stack([batch_idxs,idxs],-1).reshape(-1,2)
-          encoding = encoding.at[tuple(idxs.T)].set(1.)/2.**((T-t)/2)
-          encodings.append(encoding)
-        encodings = jnp.stack(encodings,1)
-        return encodings
-    def measurement_fn(probs):
-        T = probs.shape[-2] - 1
-        results = []
-        for t in range(0,T):
-          idxs = [sum(binary)
-                                for binary in itertools.product(*( [0, 2**q]
-                                                        for q in range(t,T)))
-                      ]
-          map_measurement = [ list(jnp.arange(2**t)+i) for i in idxs]
-          marginal =  probs[t][jnp.asarray(sum(map_measurement,[]))].reshape(2**(T-t),2**t).sum(-1)
-          support = jnp.linspace(0,1,2**(T-t))
-          result = jnp.dot(support,marginal)
-          results.append(result)
-        results.append(jnp.zeros_like(results[0]))
-        return jnp.stack(results)
-
-    def apply_fn(params, state, key, inputs, **kwargs):
-        inputs = inputs[...,0]
-        num_qubits = inputs.shape[-1] - 1
-        rbs_idxs = rbs_idxs_fn(num_qubits,num_qubits)
-        rbs_idxs = [list(map(list, rbs_idx)) for rbs_idx in rbs_idxs]
-        encodings = encoding_fn(inputs)
-        unitary_fn = make_general_orthogonal_fn(rbs_idxs, num_qubits)
-        unitary = jax.vmap(unitary_fn)(params)
-        output_state = jnp.einsum('ijk,lij->lik',unitary,encodings)
-        probs = jnp.einsum('ijk,ijk->ijk',output_state,output_state)
-        outputs = jax.vmap(measurement_fn)(probs)
-        outputs = outputs[...,None]
-        return outputs, state
-
-    def init_fn(key, inputs_shape):
-      key, init_key = jax.random.split(key)
-      num_qubits = inputs_shape[-2] - 1
-      rbs_idxs = rbs_idxs_fn(num_qubits,num_qubits)
-      rbs_idxs = [list(map(list, rbs_idx)) for rbs_idx in rbs_idxs]
-      num_params = len(sum(rbs_idxs, []))
-      params = jax.random.uniform(init_key, (inputs_shape[-2],num_params),
-                                                  minval=-jnp.pi,
-                                                  maxval=jnp.pi)
-      return params, None, inputs_shape
-
-    return ModuleFn(apply_fn, init_fn)
