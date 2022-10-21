@@ -330,8 +330,8 @@ def _make_orthogonal_fn(rbs_idxs, size):
         """ Returns the unitary matrix for a single RBS gate. """
         cos_theta, sin_theta = jnp.cos(theta), jnp.sin(theta)
         unitary = jnp.array([
-            [cos_theta, -sin_theta],
-            [sin_theta, cos_theta],
+            [cos_theta, sin_theta],
+            [-sin_theta, cos_theta],
         ])
         unitary = unitary.transpose(*[*range(2, unitary.ndim), 0, 1])
         return unitary
@@ -340,8 +340,8 @@ def _make_orthogonal_fn(rbs_idxs, size):
         """ Returns the unitary matrix for a single RBS gate. """
         cos_theta, sin_theta = jnp.cos(theta), jnp.sin(theta)
         unitary = jnp.array([
-            [-sin_theta, -cos_theta],
-            [cos_theta, -sin_theta],
+            [-sin_theta, cos_theta],
+            [-cos_theta, -sin_theta],
         ])
         unitary = unitary.transpose(*[*range(2, unitary.ndim), 0, 1])
         return unitary
