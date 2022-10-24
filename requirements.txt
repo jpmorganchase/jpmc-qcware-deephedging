@@ -4,3 +4,9 @@ optax
 tqdm
 QuantLib
 sklearn
+matplotlib
+qiskit
+qcware-quasar
+icontract
+attrs
+pyrsistent
