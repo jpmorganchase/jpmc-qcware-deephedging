@@ -12,3 +12,7 @@ A collaborative research project with source code to be released as an open sour
 - `EuropeanCall.py` : Implementation of European Call option using Quantlib
 
 Open Source @ JPMorgan Chase 2022
+
+## Dependencies
+
+Versions of packages that Ruslan tested on OmniQ (JPMC) are in `requirements_omniq.txt`
