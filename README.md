@@ -13,6 +13,6 @@ A collaborative research project with source code to be released as an open sour
 
 Open Source @ JPMorgan Chase 2022
 
-## Dependencies
+## OmniQ setup (JPMC) 
 
-Versions of packages that Ruslan tested on OmniQ (JPMC) are in `requirements_omniq.txt`
+When creating an instance to use the code on OmniQ, *do not* run the standard `setup.sh` script. Instead, use the `omniq_setup.sh` script provided in this repo.
