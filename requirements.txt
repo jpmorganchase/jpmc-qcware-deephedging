@@ -100,3 +100,5 @@ websocket-client==1.4.1
 websockets==10.4
 yarl==1.8.1
 zipp==3.10.0
+pytket==1.7.3
+pytket-quantinuum==0.9.0
