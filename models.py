@@ -91,7 +91,7 @@ def lstm_cell(hps: HyperParams,  layer_func: ModuleFn = linear, **kwargs) -> Mod
         layer_func: The type of layers to use.
     """
 
-    _linear = layer_func(n_features=hps.n_features, with_bias=True)
+    _linear = layer_func(n_features=int(hps.n_features/2), with_bias=True)
 
     def init_fn(key, inputs_shape):
         keys = jax.random.split(key, num=4)
@@ -132,12 +132,11 @@ def lstm_cell(hps: HyperParams,  layer_func: ModuleFn = linear, **kwargs) -> Mod
 
 def lstm_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
     """ Create an LSTM Network.
-
     Args:
         n_features: The number of features.
         layer_func: The type of layers to use.
     """
-    preprocessing = [linear(hps.n_features), sigmoid]
+    preprocessing = [linear( int(hps.n_features/2) ), sigmoid]
     features = [lstm_cell(hps=hps, layer_func=layer_func)]
     postprocessing = [linear(1), sigmoid]
     layers = preprocessing + features + postprocessing
