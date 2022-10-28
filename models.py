@@ -1,9 +1,12 @@
-from typing import Any, TypeVar
 import itertools
+from typing import Any, TypeVar
+
 import jax
 from jax import numpy as jnp
+
 import qnn
-from qnn import ModuleFn, elementwise, linear, sequential, make_general_orthogonal_fn, _get_butterfly_idxs, _get_pyramid_idxs 
+from qnn import (ModuleFn, _get_butterfly_idxs, _get_pyramid_idxs, elementwise,
+                 linear, make_general_orthogonal_fn, sequential)
 
 HyperParams = TypeVar('HyperParams')
 
@@ -29,7 +32,7 @@ def simple_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) ->
 
     def apply_fn(params, state, key, inputs, **kwargs):
         batch_size = inputs.shape[0]
-        T = jnp.arange(0, hps.n_steps+1, 1, dtype='float32')
+        T = jnp.arange(0, inputs.shape[-2], 1, dtype='float32')
         T = T[..., None]
         T = jnp.array([T]*batch_size)
         inputs = jnp.concatenate((inputs, T), axis=2)

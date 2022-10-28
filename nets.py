@@ -1,8 +1,9 @@
 import jax
 from jax import numpy as jnp
+
 import qnn
+import utils
 from qnn import ModuleFn, elementwise, linear, sequential
-import utils 
 
 relu = elementwise(jax.nn.relu)
 gelu = elementwise(jax.nn.gelu)

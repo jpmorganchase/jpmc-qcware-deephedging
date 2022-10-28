@@ -1,13 +1,15 @@
-from sklearn import model_selection
+import pickle
 from dataclasses import dataclass
+from functools import partial
+
+import optax
 from jax import numpy as jnp
 from jax.tree_util import tree_map
-from qnn import ModuleFn
-from functools import partial
-import qnn
+from sklearn import model_selection
+
 import models
-import pickle
-import optax
+import qnn
+from qnn import ModuleFn
 
 OptimizerFn = optax.GradientTransformation
 

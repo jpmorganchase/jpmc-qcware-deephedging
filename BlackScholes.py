@@ -1,5 +1,5 @@
-import QuantLib as ql
 import numpy as np
+import QuantLib as ql
 from tqdm import trange
 
 # References:

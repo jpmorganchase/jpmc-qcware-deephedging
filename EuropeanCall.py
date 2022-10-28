@@ -1,6 +1,7 @@
-import QuantLib as ql
 import numpy as np
+import QuantLib as ql
 from scipy import stats
+
 from BlackScholes import BlackScholesProcess
 
 # References:

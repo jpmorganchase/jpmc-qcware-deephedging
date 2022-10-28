@@ -1,6 +1,8 @@
 import gym
 import numpy as np
 from jax import numpy as jnp
+
+
 class EuropeanCallDiscreteEnv(gym.Env):
   def __init__(self, S0=100,strike_price=100, n_steps=30, epsilon=0, sigma=0.2, risk_free=0):
     self.S0 = S0

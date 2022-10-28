@@ -1,9 +1,10 @@
+import numpy as np
 import QuantLib as ql
+from tqdm import tqdm
 
 from BlackScholes import BlackScholesProcess
 from utils import HyperParams
-import numpy as np
-from tqdm import tqdm
+
 
 def gen_paths_quantlib(hps, seed=0):
     calculation_date = ql.Date.todaysDate()
@@ -24,7 +25,7 @@ def gen_paths_quantlib(hps, seed=0):
 def gen_paths(hps):
     ''' Generate paths for geometric Brownian motion.
     '''
-    dt = 1/365
+    dt = 1/252
     paths = np.zeros((hps.n_steps + 1, hps.n_paths), np.float64)
     paths[0] = hps.S0
     for t in tqdm(range(1, hps.n_steps + 1)):
