@@ -1,6 +1,7 @@
 import jax
 import optax
 from jax import numpy as jnp
+
 from qnn import orthogonalize_params
 
 
@@ -18,8 +19,13 @@ def build_train_fn(
             I = inputs - 100
         else:
             I = jnp.log(inputs / 100)
-        outputs, state = net.apply(params, state, key, I)
-        outputs = outputs.at[:,-1].set([0])
+        outputs, state = net.apply(params, state, key, I[:,:-1,:])
+        outputs = jnp.concatenate( 
+            (
+                outputs,
+             jnp.zeros_like(outputs[:, [0], :])
+        ), axis=1,
+            )
         deltas = jnp.concatenate(
             (
                 outputs[:, [0], :],

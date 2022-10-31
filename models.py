@@ -1,9 +1,12 @@
-from typing import Any, TypeVar
 import itertools
+from typing import Any, TypeVar
+
 import jax
 from jax import numpy as jnp
+
 import qnn
-from qnn import ModuleFn, elementwise, linear, sequential, make_general_orthogonal_fn, _get_butterfly_idxs, _get_pyramid_idxs 
+from qnn import (ModuleFn, _get_butterfly_idxs, _get_pyramid_idxs, elementwise,
+                 linear, make_general_orthogonal_fn, sequential)
 
 HyperParams = TypeVar('HyperParams')
 
@@ -29,7 +32,7 @@ def simple_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) ->
 
     def apply_fn(params, state, key, inputs, **kwargs):
         batch_size = inputs.shape[0]
-        T = jnp.arange(0, hps.n_steps+1, 1, dtype='float32')
+        T = jnp.arange(0, inputs.shape[-2], 1, dtype='float32')
         T = T[..., None]
         T = jnp.array([T]*batch_size)
         inputs = jnp.concatenate((inputs, T), axis=2)
@@ -88,7 +91,7 @@ def lstm_cell(hps: HyperParams,  layer_func: ModuleFn = linear, **kwargs) -> Mod
         layer_func: The type of layers to use.
     """
 
-    _linear = layer_func(n_features=hps.n_features, with_bias=True)
+    _linear = layer_func(n_features=int(hps.n_features/2), with_bias=True)
 
     def init_fn(key, inputs_shape):
         keys = jax.random.split(key, num=4)
@@ -129,12 +132,11 @@ def lstm_cell(hps: HyperParams,  layer_func: ModuleFn = linear, **kwargs) -> Mod
 
 def lstm_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) -> ModuleFn:
     """ Create an LSTM Network.
-
     Args:
         n_features: The number of features.
         layer_func: The type of layers to use.
     """
-    preprocessing = [linear(hps.n_features), sigmoid]
+    preprocessing = [linear( int(hps.n_features/2) ), sigmoid]
     features = [lstm_cell(hps=hps, layer_func=layer_func)]
     postprocessing = [linear(1), sigmoid]
     layers = preprocessing + features + postprocessing

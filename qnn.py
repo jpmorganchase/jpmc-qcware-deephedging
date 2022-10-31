@@ -532,7 +532,8 @@ def ortho_linear(
             rbs_idxs = layout
             circuit_dim = max(
                 [max(idxs) for moment in layout for idxs in moment])
-        make_unitary = _make_orthogonal_fn(rbs_idxs, circuit_dim)
+        # print(f'circuit dim = {circuit_dim}')
+        make_unitary = _make_orthogonal_fn(rbs_idxs[::-1], circuit_dim)
         if normalize_inputs:
             norm = jnp.linalg.norm(inputs, axis=-1)[..., None]
             if normalize_stop_gradient:
@@ -542,7 +543,7 @@ def ortho_linear(
             zeros = jnp.zeros(
                 (*inputs.shape[:-1], circuit_dim - inputs.shape[-1]), )
             inputs = jnp.concatenate([zeros, inputs], axis=-1)
-        unitary = make_unitary(params['t'])
+        unitary = make_unitary(params['t'][::-1])
         outputs = jnp.dot(inputs, unitary.T)[..., -n_features:]
         if normalize_outputs:
             norm = jnp.linalg.norm(outputs, axis=-1)[..., None]
@@ -582,11 +583,13 @@ def ortho_linear(
     return ModuleFn(apply_fn, init=init_fn)
 
 
+
+
 def ortho_linear_noisy(
     n_features: int,
-    noise_scale: float = 0.1,
+    noise_scale: float = 0.01,
     layout: Union[str, List[List[Tuple[int, int]]]] = 'butterfly',
-    normalize_inputs: bool = False,
+    normalize_inputs: bool = True,
     normalize_outputs: bool = True,
     normalize_stop_gradient: bool = True,
     with_scale: bool = True,
@@ -596,7 +599,6 @@ def ortho_linear_noisy(
     b_init: Optional[InitializerFn] = None,
 ) -> ModuleFn:
     """ Create an orthogonal layer from a layout of RBS gates.
-
     Args:
         n_features: The number of features in the output.
         layout: The layout of the RBS gates.
@@ -622,7 +624,7 @@ def ortho_linear_noisy(
             rbs_idxs = layout
             circuit_dim = max(
                 [max(idxs) for moment in layout for idxs in moment])
-        make_unitary = _make_orthogonal_fn(rbs_idxs, circuit_dim)
+        make_unitary = _make_orthogonal_fn(rbs_idxs[::-1], circuit_dim)
         if normalize_inputs:
             norm = jnp.linalg.norm(inputs, axis=-1)[..., None]
             if normalize_stop_gradient:
@@ -632,13 +634,15 @@ def ortho_linear_noisy(
             zeros = jnp.zeros(
                 (*inputs.shape[:-1], circuit_dim - inputs.shape[-1]), )
             inputs = jnp.concatenate([zeros, inputs], axis=-1)
-        unitary = make_unitary(params['t'])
-        outputs = jnp.dot(inputs, unitary.T)[..., -n_features:]
+        unitary = make_unitary(params['t'][::-1])
+        outputs = jnp.dot(inputs, unitary.T)
         if normalize_outputs:
             norm = jnp.linalg.norm(outputs, axis=-1)[..., None]
             if normalize_stop_gradient:
                 norm = lax.stop_gradient(norm)
             outputs /= norm
+        outputs = jnp.einsum('...i,...i->...i',outputs,outputs)
+        outputs = outputs[..., -n_features:]
         if with_scale:
             outputs *= params['s']
         if with_bias:
