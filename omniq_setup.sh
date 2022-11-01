@@ -25,9 +25,5 @@ __PY38_KERNEL_JSON__
 if [ ! -f /home/omniai-jupyter/bashrcupdated ]
 then
 touch /home/omniai-jupyter/bashrcupdated
-cat << __BASHRC__ >> /home/omniai-jupyter/.bashrc
-source /opt/omniai/work/instance1/jupyter/qcware_env/bin/activate
-__BASHRC__
-fi
 pip install --upgrade pip
 pip install -r "$repo_name"/requirements.txt
