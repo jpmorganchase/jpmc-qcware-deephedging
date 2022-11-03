@@ -25,5 +25,6 @@ __PY38_KERNEL_JSON__
 if [ ! -f /home/omniai-jupyter/bashrcupdated ]
 then
 touch /home/omniai-jupyter/bashrcupdated
+fi
 pip install --upgrade pip
 pip install -r "$repo_name"/requirements.txt
