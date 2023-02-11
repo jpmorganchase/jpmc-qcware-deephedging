@@ -28,7 +28,7 @@ icontract==2.6.2
 idna==3.4
 importlib-resources==5.10.0
 ipykernel==6.16.2
-ipython==8.5.0
+ipython==8.10.0
 jax==0.3.23
 jaxlib==0.3.22
 jedi==0.18.1
