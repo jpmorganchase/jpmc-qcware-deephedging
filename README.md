@@ -8,8 +8,8 @@ A collaborative research project with source code to be released as an open sour
 - `main.py` : Main script for running an experiment
 - `train.py`: Deep hedging model training
 - `utils.py`: Specification of all Hyperparameters and util functions
-- `BlackScholes.py`: Implementation of Black Scholes using Quantlib
-- `EuropeanCall.py` : Implementation of European Call option using Quantlib
+- `data.py`: Implementation of module generating paths for geometric Brownian motion.
+
 
 Open Source @ JPMorgan Chase 2022
 
