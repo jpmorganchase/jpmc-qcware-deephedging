@@ -21,6 +21,7 @@ Module = Callable[..., InitializerFn]
 
 
 class ModuleFn(NamedTuple):
+    """ A named tuple of apply and init functions. """
     apply: Callable[..., Tuple[Array, State]]
     init: Optional[Callable[..., Tuple[Params, State, Array]]] = None
 

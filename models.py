@@ -23,6 +23,9 @@ def simple_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) ->
         n_features: The number of features.
         n_layers: The number of layers.
         layer_func: The type of layers to use.
+    
+    Returns:
+        ModuleFn: A named tuple of apply and init function.
     """
     preprocessing = [linear(hps.n_features), sigmoid]
     features = hps.n_layers * [layer_func(hps.n_features), relu]
@@ -54,6 +57,10 @@ def recurrent_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs)
         n_features: The number of features.
         n_layers: The number of layers.
         layer_func: The type of layers to use.
+    
+    Returns:
+        ModuleFn: A named tuple of apply and init function.
+
     """
 
     preprocessing = [linear(hps.n_features), sigmoid]
@@ -89,6 +96,9 @@ def lstm_cell(hps: HyperParams,  layer_func: ModuleFn = linear, **kwargs) -> Mod
     Args:
         n_features: The number of features.
         layer_func: The type of layers to use.
+    
+    Returns:
+        ModuleFn: A named tuple of apply and init function.
     """
 
     _linear = layer_func(n_features=int(hps.n_features/2), with_bias=True)
@@ -135,6 +145,9 @@ def lstm_network(hps: HyperParams, layer_func: ModuleFn = linear, **kwargs) -> M
     Args:
         n_features: The number of features.
         layer_func: The type of layers to use.
+    
+    Returns:
+        ModuleFn: A named tuple of apply and init function.
     """
     preprocessing = [linear( int(hps.n_features/2) ), sigmoid]
     features = [lstm_cell(hps=hps, layer_func=layer_func)]
@@ -154,6 +167,9 @@ def attention_layer(
         hps.n_features: The number of features.
         layout: The layout of the RBS gates.
         layer_func: The type of layers to use.
+    
+    Returns:
+        ModuleFn: A named tuple of apply and init function.
     """
     norm = qnn.layer_norm()
     to_w = layer_func(hps.n_features, with_bias=False)
@@ -201,6 +217,9 @@ def attention_layer(
 
 def timestep_layer():
     """ Creates positional embedding of timesteps.
+
+    Returns:
+        ModuleFn: A named tuple of apply and init function.
     """
 
     def init_fn(key, inputs_shape):
@@ -225,6 +244,9 @@ def attention_network(hps: HyperParams, layer_func=linear,  **kwargs) -> ModuleF
         n_features: The number of features.
         n_layers: The number of layers.
         layer_func: The type of layers to use.
+    
+    Returns:
+        ModuleFn: A named tuple of apply and init function.
     """
     preprocessing = [linear(hps.n_features), sigmoid, timestep_layer()]
     features = hps.n_layers * [layer_func(hps.n_features), sigmoid, ] + [
@@ -235,7 +257,8 @@ def attention_network(hps: HyperParams, layer_func=linear,  **kwargs) -> ModuleF
     return net
 
 def quantum_network(hps: HyperParams, **kwargs) -> ModuleFn:
-  
+    """ Create a Quantum Network.
+    """
     if hps.layer_type == 'butterfly':
       rbs_idxs_fn = _get_butterfly_idxs
     else:

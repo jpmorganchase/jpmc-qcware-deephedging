@@ -14,6 +14,23 @@ def build_train_fn(
     wealth_init=0.,
     strike_price=100.,
 ):
+    """ Build a train function for the given hyperparameters.
+    
+    Args:
+        
+        hps: HyperParams
+        net: ModuleFn
+        opt: OptimizerFn
+        loss_metric: MetricFn
+        epsilon: float
+        wealth_init: float
+        strike_price: float
+    
+    Returns:
+        train_fn: train function
+        loss_fn: loss function
+    
+    """
     def loss_fn(params, state, key, inputs):
         if hps.discrete_path:
             I = inputs - 100

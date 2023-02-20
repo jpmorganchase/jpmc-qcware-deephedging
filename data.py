@@ -7,6 +7,13 @@ from utils import HyperParams
 
 
 def gen_paths_quantlib(hps, seed=0):
+    ''' Generate paths for geometric Brownian motion.
+    Args:
+
+        hps: HyperParams
+    Returns:
+        paths: (n_paths, n_steps + 1) array of paths
+    '''
     calculation_date = ql.Date.todaysDate()
     maturity_date = ql.Date.todaysDate() + hps.n_steps
     day_count = ql.Actual365Fixed()  # Actual/Actual (ISDA)
@@ -24,6 +31,10 @@ def gen_paths_quantlib(hps, seed=0):
 
 def gen_paths(hps):
     ''' Generate paths for geometric Brownian motion.
+    Args:
+        hps: HyperParams
+    Returns:
+        paths: (n_paths, n_steps + 1) array of paths
     '''
     dt = 1/252
     paths = np.zeros((hps.n_steps + 1, hps.n_paths), np.float64)
