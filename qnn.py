@@ -678,6 +678,102 @@ def ortho_linear_noisy(
 
     return ModuleFn(apply_fn, init=init_fn)
 
+def ortho_linear_hardware(
+    prepare_circuit,
+    run_circuit,
+    n_features: int,
+    layout: Union[str, List[List[Tuple[int, int]]]] = 'butterfly',
+    normalize_inputs: bool = True,
+    normalize_outputs: bool = True,
+    normalize_stop_gradient: bool = True,
+    with_scale: bool = True,
+    with_bias: bool = True,
+    t_init: Optional[InitializerFn] = None,
+    s_init: Optional[InitializerFn] = None,
+    b_init: Optional[InitializerFn] = None,
+) -> ModuleFn:
+    """ Create an orthogonal layer from a layout of RBS gates which can be executed on hardware. This layer 
+    replaces `ortho_linear()` and runs the same operation but on real hardware using `prepare_circuit()` and `run_circuit()` functions.
+    Args:
+        prepare_circuit: A function to create qiskit circuits given parameters.
+        run_circuit: A function which accepts a list of qiskit circuits and returns the result after executing on compatible backend. 
+        n_features: The number of features in the output.
+        layout: The layout of the RBS gates.
+        normalize_inputs: Whether to normalize the inputs.
+        normalize_outputs: Whether to normalize the outputs.
+        normalize_stop_gradient: Whether to stop the gradient of the norm.
+        with_scale: Whether to use a scale parameter.
+        with_bias: Whether to include a bias term.
+        t_init: The initializer for the angles.
+        s_init: The initializer for the scale.
+        b_init: The initializer for the bias.
+    """
+    def apply_fn(params, state, key, inputs, **kwargs):
+        # Step 1: preprocess the inputs
+        if layout == 'butterfly':
+            rbs_idxs = _get_butterfly_idxs(inputs.shape[-1], n_features)
+            circuit_dim = int(2**np.ceil(
+                np.log2(max(inputs.shape[-1], n_features))))
+        elif layout == 'pyramid':
+            rbs_idxs = _get_pyramid_idxs(inputs.shape[-1], n_features)
+            make_unitary = _get_pyramid_idxs(inputs.shape[-1], n_features)
+            circuit_dim = max(inputs.shape[-1], n_features)
+        else:
+            rbs_idxs = layout
+            circuit_dim = max(
+                [max(idxs) for moment in layout for idxs in moment])
+        if normalize_inputs:
+            norm = jnp.linalg.norm(inputs, axis=-1)[..., None]
+            if normalize_stop_gradient:
+                norm = lax.stop_gradient(norm)
+            inputs /= norm
+        if inputs.shape[-1] < circuit_dim:
+            zeros = jnp.zeros(
+                (*inputs.shape[:-1], circuit_dim - inputs.shape[-1]), )
+            inputs = jnp.concatenate([zeros, inputs], axis=-1)
+        # Step 2: generate the circuits
+        circs = []
+        out_shape = inputs.shape[:-1]+(n_features,)
+        for input in inputs.reshape(-1,circuit_dim):
+            circs.append(prepare_circuit(input,params['t']))
+        # run circuits and truncate to desired number of outputs
+        outputs = jnp.array(run_circuit(circs, circuit_dim))[..., -n_features:]
+        
+        outputs = outputs.reshape(out_shape)
+        # unitary = make_unitary(params['t'])
+        # outputs = jnp.dot(inputs, unitary.T)[..., -n_features:]
+        # outputs = inputs
+        if with_scale:
+            outputs *= params['s']
+        if with_bias:
+            outputs += params['b']
+        return outputs, state
+
+    def init_fn(key, inputs_shape):
+        if layout == 'butterfly':
+            rbs_idxs = _get_butterfly_idxs(inputs_shape[-1], n_features)
+        elif layout == 'pyramid':
+            rbs_idxs = _get_pyramid_idxs(inputs_shape[-1], n_features)
+        else:
+            rbs_idxs = layout
+        n_angles = sum(map(len, rbs_idxs))
+        params, state = {}, None
+        key, t_key, b_key, s_key = jax.random.split(key, 4)
+        t_init_ = t_init or uniform(-np.pi, np.pi)
+        t_shape = (n_angles, )
+        params['t'] = t_init_(t_key, t_shape)
+        if with_scale:
+            s_init_ = s_init or ones()
+            s_shape = (n_features, )
+            params['s'] = s_init_(s_key, s_shape)
+        if with_bias:
+            b_init_ = b_init or zeros()
+            b_shape = (n_features, )
+            params['b'] = b_init_(b_key, b_shape)
+        shape = inputs_shape[:-1] + (n_features, )
+        return params, state, shape
+
+    return ModuleFn(apply_fn, init=init_fn)
 
 def _unitary_wrapper(func):
     import functools
