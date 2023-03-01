@@ -263,12 +263,10 @@ def run_circuit(circs,num_qubits,device_id, backend_name):
     config.global_hardware_run_results_dict = global_hardware_run_results_dict
     return results
 
-    def run_circuit_compound(circs,num_qubits, backend_name = 'quantinuum_H1-1'):
-    """
-    backend name accepted 
-    """
-    global global_number_of_circuits_executed
-    global global_hardware_run_results_dict
+def run_circuit_compound(circs,num_qubits,device_id, backend_name = 'quantinuum_H1-1'):
+
+    global_number_of_circuits_executed = config.global_number_of_circuits_executed
+    global_hardware_run_results_dict = config.global_hardware_run_results_dict
     results = np.zeros((len(circs), 2**num_qubits))
     
     global_number_of_circuits_executed += len(circs)
@@ -310,7 +308,7 @@ def run_circuit(circs,num_qubits,device_id, backend_name):
         from pytket import OpType
     
         outpath_stem = "_".join([
-            "1118_device",
+            device_id,
             global_hardware_run_results_dict['model_type'],
             backend_name,
             global_hardware_run_results_dict['layer_type'],
@@ -408,4 +406,6 @@ def run_circuit(circs,num_qubits,device_id, backend_name):
             filtered_counts[bitstring] = count
             num_postselected+= count
         results[j] = np.sqrt([filtered_counts[k]/num_postselected for k in sorted(filtered_counts)])
+    config.global_number_of_circuits_executed = global_number_of_circuits_executed  
+    config.global_hardware_run_results_dict = global_hardware_run_results_dict
     return results

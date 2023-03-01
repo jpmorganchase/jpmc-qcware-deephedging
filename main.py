@@ -4,8 +4,7 @@ from tqdm import tqdm, trange
 
 import utils
 from data import gen_paths
-from loss_metrics import entropy_loss
-from train import build_train_fn
+from train import build_train_fn, entropy_loss
 from utils import HyperParams
 
 seed = 42
