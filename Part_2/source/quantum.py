@@ -1,6 +1,8 @@
 import itertools
-from typing import Callable, List, Tuple
+from typing import Callable, List, Literal, Optional, Tuple
 
+import haiku as hk
+import jax
 import numpy as np
 from jax import numpy as jnp
 from jax import scipy as jsp
