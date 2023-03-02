@@ -1,14 +1,14 @@
 import qiskit
-
+import numpy as np
 import quasar
-from qcware_transpile.translations.quasar.to_qiskit import translate, audit
 from qiskit.compiler import assemble
 import collections
 
-from qio import loader
+from ..qio import loader
+from ..qcware_transpile.translations.quasar.to_qiskit import translate, audit
 
-import numpy as np
-from qnn import _get_butterfly_idxs, _get_pyramid_idxs, _make_orthogonal_fn
+
+from Part_1.source.qnn import _get_butterfly_idxs, _get_pyramid_idxs, _make_orthogonal_fn
 # fix for older versions of Qiskit
 if qiskit.__version__ <= '0.37.1':
     import qiskit.providers.aer.noise as noise

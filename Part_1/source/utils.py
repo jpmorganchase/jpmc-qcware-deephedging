@@ -8,7 +8,7 @@ from jax.tree_util import tree_map
 from sklearn import model_selection
 
 import models
-import qnn
+import qnn 
 from qnn import ModuleFn
 
 OptimizerFn = optax.GradientTransformation

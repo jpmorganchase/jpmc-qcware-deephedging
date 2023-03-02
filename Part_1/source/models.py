@@ -4,8 +4,8 @@ from typing import Any, TypeVar
 import jax
 from jax import numpy as jnp
 
-import qnn
-from qnn import (ModuleFn, _get_butterfly_idxs, _get_pyramid_idxs, elementwise,
+import Part_1.source.qnn as qnn
+from Part_1.source.qnn import (ModuleFn, _get_butterfly_idxs, _get_pyramid_idxs, elementwise,
                  linear, make_general_orthogonal_fn, sequential)
 
 HyperParams = TypeVar('HyperParams')
