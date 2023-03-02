@@ -4,8 +4,10 @@ import quasar
 from qiskit.compiler import assemble
 import collections
 
-from ..qio import loader
-from ..qcware_transpile.translations.quasar.to_qiskit import translate, audit
+import sys
+sys.path.append("..")
+from qio import loader
+from qcware_transpile.translations.quasar.to_qiskit import translate, audit
 
 
 from Part_1.source.qnn import _get_butterfly_idxs, _get_pyramid_idxs, _make_orthogonal_fn
@@ -20,7 +22,7 @@ import time
 import copy
 from pathlib import Path
 from tqdm import tqdm
-import config
+from source import config
 
 
 def prepare_circuit(input, params, loader_layout='parallel', layer_layout='butterfly'):
@@ -135,7 +137,7 @@ def run_circuit(circs,num_qubits,device_id, backend_name):
     """
     global_number_of_circuits_executed = config.global_number_of_circuits_executed
     global_hardware_run_results_dict = config.global_hardware_run_results_dict
-    input_size = circuit_dim
+    input_size = num_qubits
     results = np.zeros((len(circs), input_size))
     
     global_number_of_circuits_executed += len(circs)

@@ -1,11 +1,11 @@
-from typing import (Callable, List, Mapping, NamedTuple, Optional, Sequence,
-                    Tuple, Union)
+import itertools
+from typing import Callable, List, Mapping, NamedTuple, Optional, Sequence, Tuple, Union
 
 import jax
 import numpy as np
 from jax import lax
 from jax import numpy as jnp
-import itertools
+
 # Typing
 # -----------------------------------------------------------------------------
 
