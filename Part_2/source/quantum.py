@@ -1,8 +1,6 @@
 import itertools
-from typing import Callable, List, Literal, Optional, Tuple
+from typing import Callable, List, Tuple
 
-import haiku as hk
-import jax
 import numpy as np
 from jax import numpy as jnp
 from jax import scipy as jsp
@@ -47,38 +45,38 @@ def make_ortho_fn(
     rbs_idxs = [list(map(list, rbs_idx)) for rbs_idx in rbs_idxs]
     len_idxs = np.cumsum([0] + list(map(len, rbs_idxs)))
 
-    def get_rbs_unitary(theta):
-        """Returns the unitary matrix for the RBS gate."""
+    def get_rbs_matrix(theta):
+        """Returns the matrix for the RBS gate."""
         cos_theta, sin_theta = jnp.cos(theta), jnp.sin(theta)
-        unitary = jnp.array(
+        matrix = jnp.array(
             [
                 [cos_theta, sin_theta],
                 [-sin_theta, cos_theta],
             ]
         )
-        unitary = unitary.transpose(*[*range(2, unitary.ndim), 0, 1])
-        return unitary
+        matrix = matrix.transpose(*[*range(2, matrix.ndim), 0, 1])
+        return matrix
 
     def orthogonal_fn(thetas):
         """Returns the orthogonal matrix for the given parameters."""
-        unitaries = []
-        # Compute the unitary for each layer
+        matrices = []
+        # Compute the matrix for each layer
         for i, idxs in enumerate(rbs_idxs):
             idxs = sum(idxs, [])
             sub_thetas = thetas[len_idxs[i] : len_idxs[i + 1]]
-            rbs_blocks = get_rbs_unitary(sub_thetas)
+            rbs_blocks = get_rbs_matrix(sub_thetas)
             eye_block = jnp.eye(num_qubits - len(idxs), dtype=thetas.dtype)
             permutation = idxs + [i for i in range(num_qubits) if i not in idxs]
             permutation = np.argsort(permutation)
-            unitary = jsp.linalg.block_diag(*rbs_blocks, eye_block)
-            unitary = unitary[permutation][:, permutation]
-            unitaries.append(unitary)
-        unitaries = jnp.stack(unitaries)
-        if len(unitaries) > 1:
-            unitary = jnp.linalg.multi_dot(unitaries[::-1])
+            matrix = jsp.linalg.block_diag(*rbs_blocks, eye_block)
+            matrix = matrix[permutation][:, permutation]
+            matrices.append(matrix)
+        matrices = jnp.stack(matrices)
+        if len(matrices) > 1:
+            matrix = jnp.linalg.multi_dot(matrices[::-1])
         else:
-            unitary = unitaries[0]
-        return unitary[::-1][:, ::-1]
+            matrix = matrices[0]
+        return matrix[::-1][:, ::-1]
 
     return orthogonal_fn
 
@@ -141,17 +139,17 @@ def decompose_state(
         state[..., subspace_idxs[weight]] for weight in range(num_qubits + 1)
     ]
     # Compute the norm of each subspace
-    alphas = [
+    subspace_weights = [
         jnp.linalg.norm(subspace_state, axis=-1) for subspace_state in subspace_states
     ]
     # Compute the normalized projection on each subspace
-    betas = [
+    subspace_projs = [
         subspace_state / (alpha[..., None] + 1e-6)
-        for alpha, subspace_state in zip(alphas, subspace_states)
+        for alpha, subspace_state in zip(subspace_weights, subspace_states)
     ]
-    # Reshape the alphas to be of shape (*batch_dims, n+1)
-    alphas = [alpha.reshape(*batch_dims, -1) for alpha in alphas]
-    # Reshape the betas to be of shape (*batch_dims, n choose k)
-    betas = [beta.reshape(*batch_dims, -1) for beta in betas]
-    alphas = jnp.stack(alphas, -1)[..., 0, :]
-    return alphas, betas
+    # Reshape subspace_weight to be of shape (*batch_dims, n+1)
+    subspace_weights = [a.reshape(*batch_dims, -1) for a in subspace_weights]
+    # Reshape subspace_projs to be of shape (*batch_dims, n choose k)
+    subspace_projs = [b.reshape(*batch_dims, -1) for b in subspace_projs]
+    subspace_weights = jnp.stack(subspace_weights, -1)[..., 0, :]
+    return subspace_weights, subspace_projs

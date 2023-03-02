@@ -24,8 +24,7 @@ def compute_black_scholes_deltas(
     Returns:
         An array of deltas.
     """
-    seq_prices = seq_prices[..., None]
-    seq_prices = seq_prices[:, :-1]
+    seq_prices = seq_prices[:, :-1][..., None]
     strike_price = seq_prices[0, 0] * strike
     T = jnp.arange(1, num_days + 1) / num_trading_days
     T = jnp.repeat(jnp.flip(T[None, :]), seq_prices.shape[0], 0)
