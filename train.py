@@ -1,8 +1,14 @@
 import jax
+import numpy as np
 import optax
+import tqdm
+from tqdm import tqdm, trange
 from jax import numpy as jnp
 
+import utils
 from qnn import orthogonalize_params
+from utils import HyperParams
+
 
 def gen_paths(hps):
     ''' Generate paths for geometric Brownian motion.
