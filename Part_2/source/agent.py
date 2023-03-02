@@ -1,16 +1,10 @@
-import itertools
-import pickle
-import sys
-import time
-from math import factorial
-from typing import Callable, List, Literal, NamedTuple, Optional, Tuple
+from typing import Literal, Optional
 
 import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from tqdm import tqdm
 
 from .env import (
     compute_black_scholes_deltas,
@@ -676,6 +670,16 @@ def make_test(
             utility_lambda=utility_lambda,
         )
         metrics = {"utility": utility, "bs_utility": bs_utility}
-        return metrics
+        other = {
+            "seq_prices": seq_prices,
+            "seq_deltas": seq_deltas,
+            "seq_rewards": seq_rewards,
+            "seq_bs_rewards": seq_bs_rewards,
+            "seq_bs_deltas": seq_bs_deltas,
+        }
+        for i in range(seq_rewards.shape[0]):
+            other[f"PnL_{i}"] = seq_rewards[i].sum()
+            other[f"PnL_bs_{i}"] = seq_bs_rewards[i].sum()
+        return metrics, other
 
     return test_step
