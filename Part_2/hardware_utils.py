@@ -6,7 +6,6 @@ import collections
 
 import sys
 sys.path.append("..")
-from qio import loader
 from qcware_transpile.translations.quasar.to_qiskit import translate, audit
 
 
