@@ -7,7 +7,7 @@ A collaborative research project with source code to be released as an open sour
 - Table 1:  `Part_1/train_and_test.ipynb`
 - Table 2: `Part_1/hardware.ipynb`
 - Table 3: `Part_1/hardware.ipynb`
-- Table 4: 'Part_2/t'
+- Table 4: `Part_2/test.ipynb`
 - Table 5:  `Part_2/hardware.ipynb`
 - Table 6: `Part_2/hardware.ipynb`
 
