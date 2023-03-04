@@ -1,5 +1,8 @@
 import itertools
+import sys
 from typing import List, Literal, Optional, Tuple
+
+sys.path.append("..")
 
 import haiku as hk
 import jax
@@ -7,7 +10,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 from jax import numpy as jnp
-from jax import scipy as jsp
+from quantum import make_ortho_fn
 
 from .env import (
     compute_black_scholes_deltas,
@@ -17,7 +20,6 @@ from .env import (
     compute_rewards,
     compute_utility,
 )
-from .quantum import make_ortho_fn
 
 
 def split_params(params):
