@@ -24,6 +24,20 @@ from tqdm import tqdm
 from . import hardware_config
 
 
+def counter_to_dict(c):
+    """Converts counter returned by pytket get_counts function
+    to dictionary returned by qiskit
+    canonical use:
+    >>> result = backend.get_result(handle)
+    >>> counts = result.get_counts(basis=BasisOrder.dlo)
+    >>> counts_qiskit = counter_to_dict(counts)
+    """
+    d = {}
+    for k, v in c.items():
+        d["".join(str(x) for x in k)] = int(v)
+    return d
+
+
 def prepare_circuit_compound(rbs_idxs, time_step, num_qubits, seq_jumps, thetas):
     """
     This function prepares a quantum circuit for a given input and set of parameters,
@@ -65,20 +79,6 @@ def prepare_circuit_compound(rbs_idxs, time_step, num_qubits, seq_jumps, thetas)
     qiskit_circuit.barrier()
     qiskit_circuit.measure(qubit=range(num_qubits), cbit=c)
     return qiskit_circuit
-
-
-def counter_to_dict(c):
-    """Converts counter returned by pytket get_counts function
-    to dictionary returned by qiskit
-    canonical use:
-    >>> result = backend.get_result(handle)
-    >>> counts = result.get_counts(basis=BasisOrder.dlo)
-    >>> counts_qiskit = counter_to_dict(counts)
-    """
-    d = {}
-    for k, v in c.items():
-        d["".join(str(x) for x in k)] = int(v)
-    return d
 
 
 def run_circuit_compound(circs, num_qubits, device_id, backend_name="quantinuum_H1-1"):
