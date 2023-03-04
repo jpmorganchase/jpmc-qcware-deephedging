@@ -1,13 +1,21 @@
+import os
+import sys
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
+
+
 import pickle
 from dataclasses import dataclass
 from functools import partial
 
-from source import models, qnn
 import optax
 from jax import numpy as jnp
 from jax.tree_util import tree_map
-from .qnn import ModuleFn
 from sklearn import model_selection
+
+from source import models, qnn
+from source.qnn import ModuleFn
 
 OptimizerFn = optax.GradientTransformation
 
@@ -25,7 +33,14 @@ OPTIMIZERS = [
     "yogi",
 ]
 
-LAYERS = ["linear", "linear_svb", "butterfly", "noisy_butterfly", "pyramid", "noisy_pyramid"]
+LAYERS = [
+    "linear",
+    "linear_svb",
+    "butterfly",
+    "noisy_butterfly",
+    "pyramid",
+    "noisy_pyramid",
+]
 
 MODELS = ["simple", "recurrent", "lstm", "attention", "fully_quantum"]
 
@@ -74,21 +89,11 @@ def get_batches(data, batch_size):
     return num_batches, jnp.array(batches)
 
 
-def save_params(file_name, params):
-    with open(file_name, "wb") as f:
-        pickle.dump(params, f)
-
-
-def load_params(file_name):
-    with open(file_name, "rb") as f:
-        params = pickle.load(f)
-        # convert NP arrays to Jax arrays
-        return tree_map(lambda param: jnp.array(param), params)
-
-
 def make_layer(layer_type: str = "linear") -> ModuleFn:
     """Creates a layer with the specified type."""
-    assert layer_type in LAYERS, f"{layer_type} is not a valid layer type. Choose from {LAYERS}"
+    assert (
+        layer_type in LAYERS
+    ), f"{layer_type} is not a valid layer type. Choose from {LAYERS}"
     if layer_type in ["linear", "linear_svb"]:
         layer_func = qnn.linear
     elif layer_type in ["pyramid", "butterfly"]:
@@ -100,7 +105,9 @@ def make_layer(layer_type: str = "linear") -> ModuleFn:
 
 def make_model(model_type: str = "simple") -> ModuleFn:
     """Creates a model with the specified type."""
-    assert model_type in MODELS, f"{model_type} is not a valid model type. Choose from {MODELS}"
+    assert (
+        model_type in MODELS
+    ), f"{model_type} is not a valid model type. Choose from {MODELS}"
     if model_type == "simple":
         model_func = models.simple_network
     elif model_type == "recurrent":

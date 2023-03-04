@@ -1,23 +1,10 @@
-import collections
+import os
 import sys
-from os.path import dirname as up
-
-import numpy as np
-import qiskit
-import quasar
-from qiskit.compiler import assemble
 
 sys.path.append("..")
 sys.path.append("../..")
-from qcware_transpile.translations.quasar.to_qiskit import audit, translate
-from qio import loader
-from source.qnn import _get_butterfly_idxs, _get_pyramid_idxs
-
-# fix for older versions of Qiskit
-if qiskit.__version__ <= "0.37.1":
-    import qiskit.providers.aer.noise as noise
-else:
-    import qiskit_aer.noise as noise
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
 
 import copy
 import json
@@ -25,8 +12,34 @@ import pickle
 import time
 from pathlib import Path
 
+import numpy as np
+import qiskit
+import quasar
+from qcware_transpile.translations.quasar.to_qiskit import translate
+from qio import loader
 from source import config
+from source.qnn import get_butterfly_idxs, get_pyramid_idxs
 from tqdm import tqdm
+
+# fix for older versions of Qiskit
+if qiskit.__version__ <= "0.37.1":
+    import qiskit.providers.aer.noise as noise
+else:
+    import qiskit_aer.noise as noise
+
+
+def counter_to_dict(c):
+    """Converts counter returned by pytket get_counts function
+    to dictionary returned by qiskit
+    canonical use:
+    >>> result = backend.get_result(handle)
+    >>> counts = result.get_counts(basis=BasisOrder.dlo)
+    >>> counts_qiskit = counter_to_dict(counts)
+    """
+    d = {}
+    for k, v in c.items():
+        d["".join(str(x) for x in k)] = int(v)
+    return d
 
 
 def prepare_circuit(input, params, loader_layout="parallel", layer_layout="butterfly"):
@@ -50,9 +63,9 @@ def prepare_circuit(input, params, loader_layout="parallel", layer_layout="butte
     def _get_layer_circuit():
         _params = np.array(params).astype("float")
         if layer_layout == "butterfly":
-            rbs_idxs = _get_butterfly_idxs(num_qubits, num_qubits)
+            rbs_idxs = get_butterfly_idxs(num_qubits, num_qubits)
         elif layer_layout == "pyramid":
-            rbs_idxs = _get_pyramid_idxs(num_qubits, num_qubits)
+            rbs_idxs = get_pyramid_idxs(num_qubits, num_qubits)
         circuit_layer = quasar.Circuit()
         idx_angle = 0
         for gates_per_timestep in rbs_idxs[::-1]:
@@ -80,20 +93,6 @@ def prepare_circuit(input, params, loader_layout="parallel", layer_layout="butte
     qiskit_circuit.barrier()
     qiskit_circuit.measure(qubit=range(num_qubits), cbit=c)
     return qiskit_circuit
-
-
-def counter_to_dict(c):
-    """Converts counter returned by pytket get_counts function
-    to dictionary returned by qiskit
-    canonical use:
-    >>> result = backend.get_result(handle)
-    >>> counts = result.get_counts(basis=BasisOrder.dlo)
-    >>> counts_qiskit = counter_to_dict(counts)
-    """
-    d = {}
-    for k, v in c.items():
-        d["".join(str(x) for x in k)] = int(v)
-    return d
 
 
 def run_circuit(circs, num_qubits, device_id, backend_name):
