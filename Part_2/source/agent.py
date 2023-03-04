@@ -1,10 +1,13 @@
-from typing import Literal, Optional
+import itertools
+from typing import List, Literal, Optional, Tuple
 
 import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
+from jax import numpy as jnp
+from jax import scipy as jsp
 
 from .env import (
     compute_black_scholes_deltas,
@@ -14,11 +17,11 @@ from .env import (
     compute_rewards,
     compute_utility,
 )
-from .quantum import compute_compound, decompose_state, get_brick_idxs, make_ortho_fn
+from .quantum import make_ortho_fn
 
 
 def split_params(params):
-    # Split the parameters of the actor and the critic
+    """Splits the parameters of the actor and the critic."""
     actor_params = dict((k, v) for k, v in params["~"].items() if k.startswith("actor"))
     critic_params = dict(
         (k, v) for k, v in params["~"].items() if k.startswith("critic")
@@ -27,10 +30,191 @@ def split_params(params):
 
 
 def join_params(actor_params, critic_params):
-    # Join the parameters of the actor and the critic
+    """Joins the parameters of the actor and the critic."""
     params = dict(actor_params)
     params.update(critic_params)
     return {"~": params}
+
+
+# Note: Reduce the number of layers for the hardware
+def get_brick_idxs(
+    num_qubits: int,
+    num_layers: int = None,
+) -> List[List[Tuple[int, int]]]:
+    """Computes the indices of the RBS gates for the Brick architecture and returns a nested
+    list where each inner list contains pairs of indices indicating the RBS gates to be applied
+    in parallel.
+    Args:
+        num_qubits: Number of qubits to use in the circuit.
+        num_layers: Number of layers to use in the circuit. Default is
+            `None`, in which case the number of layers is logarithmic.
+
+    Returns:
+        A nested list where each inner list contains pairs of indices
+        indicating the RBS gates to be applied in parallel.
+    """
+    if num_layers is None:
+        num_layers = 1 + int(np.log2(num_qubits))
+    rbs_idxs = [[(i, i + 1) for i in range(0, num_qubits - 1, 2)]]
+    rbs_idxs += [[(i, i + 1) for i in range(1, num_qubits - 1, 2)]]
+    return rbs_idxs * num_layers
+
+
+def compute_compound(
+    matrix: jnp.ndarray,
+    order: int = 1,
+) -> jnp.ndarray:
+    """
+    Args:
+        unary: The orthogonal matrix used for calculating the compound matrix.
+        order: The order k of the compound matrix to be computed.
+
+    Returns:
+        The compound matrix of order k.
+
+    Raises:
+        ValueError: If the order of the compound matrix is greater than the number of qubits in the orthogonal matrix.
+    """
+    num_qubits = matrix.shape[-1]
+    # revert endian notation
+    compound_1 = matrix[::-1][:, ::-1]
+    if (order == 0) or (order == num_qubits):
+        return jnp.ones((1, 1))
+    elif order == 1:
+        return compound_1
+    else:
+        # Compute the compound matrix of order k
+        subsets = list(itertools.combinations(range(num_qubits), order))
+        compounds = compound_1[subsets, ...][..., subsets].transpose(0, 2, 1, 3)
+        compound_k = jnp.linalg.det(compounds)
+    return compound_k
+
+
+def decompose_state(
+    state: np.ndarray,
+) -> Tuple[np.ndarray, List[np.ndarray]]:
+    """
+    Args:
+        state: The quantum state to be decomposed.
+
+    Returns:
+        A tuple containing the weight of every subspace, as a numpy array of shape (batch_dims, n+1),
+        where `n` is the number of qubits, and the projection on each subspace, as a list of numpy
+        arrays of shape (batch_dims, n choose k).
+
+    """
+    num_qubits = int(np.log2(state.shape[-1]))
+    batch_dims = state.shape[:-1]
+    # Reshape the state to be of shape (product of batch_dims, 2**num_qubits)
+    state = state.reshape(-1, 2**num_qubits)
+    # Select the indices of the basis states that belong to each subspace
+    subspace_idxs = [
+        [
+            int((2 ** np.array(b)).sum())
+            for b in itertools.combinations(range(num_qubits), weight)
+        ]
+        for weight in range(num_qubits + 1)
+    ]
+    # Compute the unnormalized projection on each subspace
+    subspace_states = [
+        state[..., subspace_idxs[weight]] for weight in range(num_qubits + 1)
+    ]
+    # Compute the norm of each subspace
+    subspace_weights = [
+        jnp.linalg.norm(subspace_state, axis=-1) for subspace_state in subspace_states
+    ]
+    # Compute the normalized projection on each subspace
+    subspace_projs = [
+        subspace_state / (alpha[..., None] + 1e-6)
+        for alpha, subspace_state in zip(subspace_weights, subspace_states)
+    ]
+    # Reshape subspace_weight to be of shape (*batch_dims, n+1)
+    subspace_weights = [a.reshape(*batch_dims, -1) for a in subspace_weights]
+    # Reshape subspace_projs to be of shape (*batch_dims, n choose k)
+    subspace_projs = [b.reshape(*batch_dims, -1) for b in subspace_projs]
+    subspace_weights = jnp.stack(subspace_weights, -1)[..., 0, :]
+    return subspace_weights, subspace_projs
+
+
+def apply_compound_t(
+    seq_jumps_t: jnp.ndarray,
+    scope: str,
+    num_days: int,
+    obs_min: float,
+    obs_max: float,
+) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    """Applies the compound neural network to the sequence of jumps at timestep t.
+
+    Args:
+        seq_jumps_t: The sequence of jumps at timestep t.
+        scope: The scope of haiku's parameters.
+        num_days: The number of days T.
+        obs_min: The minimum value of the observation.
+        obs_max: The maximum value of the observation.
+
+    Returns:
+        The expectation of the obsrvable at timestep t, as an array of shape (batch_size, 1)
+        and the expectation per subspace as an array of shape (batch_size, T-t+2+1).
+    """
+    time_step = seq_jumps_t.shape[-1]
+    num_qubits = num_days - time_step + 2
+    # Compute the RBS indices for the circuits at timestep t
+    rbs_idxs = get_brick_idxs(num_qubits)
+    # Compute the sequence of deltas (actions)
+    # Initialize the parameters for the actor circuit at timestep t
+    circuit_depth = max(time_step, 1) * len(rbs_idxs)
+    init = hk.initializers.TruncatedNormal(stddev=1.0 / np.sqrt(circuit_depth))
+    num_params = sum(map(len, rbs_idxs))
+    if time_step == 0:
+        thetas_shape = (1, num_params)
+    else:
+        thetas_shape = (2 * time_step, num_params)
+    thetas = hk.get_parameter(
+        f"{scope}_thetas_{time_step}",
+        thetas_shape,
+        jnp.float32,
+        init=init,
+    )
+    thetas = thetas.reshape(-1, num_params)
+    matrices = jax.vmap(make_ortho_fn(rbs_idxs, num_qubits))(thetas)
+    # Create the input quantum state for the actor circuit at timestep t
+    state = jnp.ones((2 ** (num_days - time_step),)) / np.sqrt(
+        2 ** (num_days - time_step)
+    )
+    # Add two ancilla qubits initialized to |01>
+    state = jnp.kron(state, jnp.array([0.0, 1.0, 0.0, 0.0]))
+    # Project the state onto subspaces
+    alphas, betas = decompose_state(state)
+    if time_step == 0:
+        # One unary for timestep 0
+        seq_matrices = matrices
+    else:
+        # One unary per element in the sequence of jumps until timestep t
+        matrices = matrices.reshape(2, time_step, num_qubits, num_qubits)
+        seq_matrices = jnp.einsum("bt,tij->btij", seq_jumps_t, matrices[1])
+        seq_matrices += jnp.einsum("bt,tij->btij", 1 - seq_jumps_t, matrices[0])
+        if time_step > 1:
+            seq_matrices = jax.vmap(jnp.linalg.multi_dot)(seq_matrices[:, ::-1, :, :])
+        else:
+            seq_matrices = seq_matrices[:, 0]
+    # Compoute the compound of the orthogonal matrices
+    compounds = [
+        jax.vmap(compute_compound, in_axes=(0, None))(seq_matrices, order)
+        for order in range(num_qubits + 1)
+    ]
+    # Update the projections onto the subspaces
+    betas = [compound @ beta for compound, beta in zip(compounds, betas)]
+    # Compute the mean of the observable in every subspace
+    # For the actions, the bounds are [0, 1]
+    ranges = [(obs_min, obs_max) for _ in range(len(betas))]
+    dist = [
+        beta**2 @ jnp.linspace(*delta_range, beta.shape[-1])
+        for beta, delta_range in zip(betas, ranges)
+    ]
+    # Compute the expected delta of the observable over all subspaces
+    exp = [alpha**2 * dist for alpha, dist in zip(alphas, dist)]
+    exp = jnp.array(exp).sum(0)
+    return exp, dist
 
 
 def make_train_nn(
@@ -61,16 +245,11 @@ def make_train_nn(
             The generated sequences of jumps, actions, values and subspace values.
         """
         key = hk.next_rng_key()
-        # Avoid computing the same action for all paths by creating a tree
-        # During this batching process using a tree, the probability of seeing a particular path is equal to 1/num_paths
-        # Advantage (1) Avoids computing the same action for all paths
-        # Advantage (2) Allows for parallelization
-        # Advantage (3) Reduce number of hardware resources needed
-        # Remark: No advantage asymptotically if the total environment paths goes to infinity and batch size is small
+        # Avoid computing the same action for all paths by creating a batching tree
+        # The probability of seeing a particular path is still to 1/num_paths
         tree_depth = np.log2(num_paths).astype(int)
-        # Loop over the time steps to compute I_t, s_t,d_t,v_t
+        # Loop over the time steps to compute M_t,s_t,d_t,v_t
         for time_step in range(num_days):
-            ### PART 1: Compute the sequence of jumps
             # Compute the sequence of jumps
             if time_step == 0:
                 # Initialize the sequence of jumps for t=0
@@ -92,66 +271,14 @@ def make_train_nn(
                     subkey, bernoulli_prob, (seq_jumps.shape[0], 1)
                 )
                 seq_jumps = jnp.concatenate([seq_jumps, day_jumps], axis=-1)
-            # Compute the number of qubits for the circuits at timestep t
-            num_qubits = num_days - time_step + 2
-            # Compute the RBS indices for the circuits at timestep t
-            rbs_idxs = get_brick_idxs(num_qubits)
-            ### PART 2: Compute the sequence of deltas (actions)
-            # Initialize the parameters for the actor circuit at timestep t
-            circuit_depth = max(time_step, 1) * len(rbs_idxs)
-            init = hk.initializers.TruncatedNormal(stddev=1.0 / np.sqrt(circuit_depth))
-            num_params = sum(map(len, rbs_idxs))
-            if time_step == 0:
-                thetas_shape = (1, num_params)
-            else:
-                thetas_shape = (2 * time_step, num_params)
-            thetas = hk.get_parameter(
-                "actor_thetas_{}".format(time_step),
-                thetas_shape,
-                jnp.float32,
-                init=init,
+            # Compute the sequence of actions
+            deltas_exp, _ = apply_compound_t(
+                seq_jumps_t=seq_jumps,
+                scope="actor",
+                num_days=num_days,
+                obs_min=0.0,
+                obs_max=1.0,
             )
-            # Create the input quantum state for the actor circuit at timestep t
-            state = jnp.ones((2 ** (num_days - time_step),)) / np.sqrt(
-                2 ** (num_days - time_step)
-            )
-            # Add two ancilla qubits initialized to |01>
-            state = jnp.kron(state, jnp.array([0.0, 1.0, 0.0, 0.0]))
-            # Project the state onto subspaces
-            alphas, betas = decompose_state(state)
-            thetas = thetas.reshape(-1, num_params)
-            unaries = jax.vmap(make_ortho_fn(rbs_idxs, num_qubits))(thetas)
-            if time_step == 0:
-                # One unary for timestep 0
-                seq_unaries = unaries
-            else:
-                # One unary per element in the sequence of jumps until timestep t
-                unaries = unaries.reshape(2, time_step, num_qubits, num_qubits)
-                seq_unaries = jnp.einsum("bt,tij->btij", seq_jumps, unaries[1])
-                seq_unaries += jnp.einsum("bt,tij->btij", 1 - seq_jumps, unaries[0])
-                if time_step > 1:
-                    seq_unaries = jax.vmap(jnp.linalg.multi_dot)(
-                        seq_unaries[:, ::-1, :, :]
-                    )
-                else:
-                    seq_unaries = seq_unaries[:, 0]
-            # Compoute the compound of the unaries
-            compounds = [
-                jax.vmap(compute_compound, in_axes=(0, None))(seq_unaries, order)
-                for order in range(num_qubits + 1)
-            ]
-            # Update the projections onto the subspaces
-            deltas_betas = [compound @ beta for compound, beta in zip(compounds, betas)]
-            # Compute the mean of the observable in every subspace
-            # For the actions, the bounds are [0, 1]
-            deltas_ranges = [(0, 1) for _ in range(len(deltas_betas))]
-            deltas_dist = [
-                beta**2 @ jnp.linspace(*delta_range, beta.shape[-1])
-                for beta, delta_range in zip(deltas_betas, deltas_ranges)
-            ]
-            # Compute the expected delta of the observable over all subspaces
-            deltas_exp = [alpha**2 * dist for alpha, dist in zip(alphas, deltas_dist)]
-            deltas_exp = jnp.array(deltas_exp).sum(0)
             # Duplicate the deltas for the next step
             if time_step == 0:
                 seq_deltas_exp = [deltas_exp]
@@ -163,55 +290,13 @@ def make_train_nn(
             else:
                 seq_deltas_exp.append(deltas_exp)
             if model != "vanilla":
-                ### PART 3: Compute the sequence of values
-                # Initialize the parameters for the critic circuit at timestep t
-                if time_step == 0:
-                    thetas_shape = (1, num_params)
-                else:
-                    thetas_shape = (2 * time_step, num_params)
-                thetas = hk.get_parameter(
-                    "critic_thetas_{}".format(time_step),
-                    thetas_shape,
-                    jnp.float32,
-                    init=init,
+                values_exp, values_dist = apply_compound_t(
+                    seq_jumps_t=seq_jumps,
+                    scope="critic",
+                    num_days=num_days,
+                    obs_min=bounds[0][time_step],
+                    obs_max=bounds[1][time_step],
                 )
-                thetas = thetas.reshape(-1, num_params)
-                unaries = jax.vmap(make_ortho_fn(rbs_idxs, num_qubits))(thetas)
-                if time_step == 0:
-                    # One unary for timestep 0
-                    seq_unaries = unaries
-                else:
-                    # One unary per element in the sequence of jumps until timestep t
-                    unaries = unaries.reshape(2, time_step, num_qubits, num_qubits)
-                    seq_unaries = jnp.einsum("bt,tij->btij", seq_jumps, unaries[0])
-                    seq_unaries += jnp.einsum("bt,tij->btij", 1 - seq_jumps, unaries[1])
-                    if time_step > 1:
-                        seq_unaries = jax.vmap(jnp.linalg.multi_dot)(seq_unaries)
-                    else:
-                        seq_unaries = seq_unaries[:, 0]
-                # Compoute the compound of the unaries
-                compounds = [
-                    jax.vmap(compute_compound, in_axes=(0, None))(seq_unaries, order)
-                    for order in range(num_qubits + 1)
-                ]
-                # Update the projections onto the subspaces
-                values_betas = [
-                    compound @ beta for compound, beta in zip(compounds, betas)
-                ]
-                # Compute the mean of the observable in every subspace
-                obs_min = bounds[0][time_step]
-                obs_max = bounds[1][time_step]
-                values_ranges = [(obs_min, obs_max) for _ in range(len(values_betas))]
-                values_dist = [
-                    beta**2 @ jnp.linspace(*values_range, beta.shape[-1])
-                    for beta, values_range in zip(values_betas, values_ranges)
-                ]
-                # Compute the expected value of the observable over all subspaces
-                values_exp = [
-                    alpha**2 * dist for alpha, dist in zip(alphas, values_dist)
-                ]
-                # Duplicate the values for the next step
-                values_exp = jnp.array(values_exp).sum(0)
                 values_dist = jnp.stack(values_dist, axis=-1)
                 if time_step == 0:
                     seq_values_exp = [values_exp]
@@ -287,66 +372,16 @@ def make_test_nn(
         Returns:
             The generated sequences of actions.
         """
-        # Loop over the time steps to compute I_t,s_t,d_t,v_t
+        # Loop over the time steps to compute M_t,s_t,d_t,v_t
         for time_step in range(num_days):
-            num_qubits = num_days - time_step + 2
-            # Compute the RBS indices for the circuits at timestep t
-            rbs_idxs = get_brick_idxs(num_qubits)
-            # Initialize the parameters for the actor circuit at timestep t
-            init = hk.initializers.RandomNormal(stddev=1.0 / np.sqrt(len(rbs_idxs)))
-            num_params = sum(map(len, rbs_idxs))
-            if time_step == 0:
-                thetas_shape = (1, num_params)
-            else:
-                thetas_shape = (2 * time_step, num_params)
-            thetas = hk.get_parameter(
-                "actor_thetas_{}".format(time_step),
-                thetas_shape,
-                jnp.float32,
-                init=init,
+            # Compute the sequence of actions
+            deltas_exp, _ = apply_compound_t(
+                seq_jumps_t=seq_jumps[:, :time_step],
+                scope="actor",
+                num_days=num_days,
+                obs_min=0.0,
+                obs_max=1.0,
             )
-            # Create the input quantum state for the actor circuit at timestep t
-            state = jnp.ones((2 ** (num_days - time_step),)) / np.sqrt(
-                2 ** (num_days - time_step)
-            )
-            # Add two ancilla qubits initialized to |01>
-            state = jnp.kron(state, jnp.array([0.0, 1.0, 0.0, 0.0]))
-            # Project the state onto subspaces
-            alphas, betas = decompose_state(state)
-            thetas = thetas.reshape(-1, num_params)
-            unaries = jax.vmap(make_ortho_fn(rbs_idxs, num_qubits))(thetas)
-            if time_step == 0:
-                # One unary for timestep 0
-                seq_unaries = unaries
-            else:
-                # One unary per element in the sequence of jumps until timestep t
-                actual_jumps = seq_jumps[:, :time_step]
-                unaries = unaries.reshape(2, time_step, num_qubits, num_qubits)
-                seq_unaries = jnp.einsum("bt,tij->btij", actual_jumps, unaries[1])
-                seq_unaries += jnp.einsum("bt,tij->btij", 1 - actual_jumps, unaries[0])
-                if time_step > 1:
-                    seq_unaries = jax.vmap(jnp.linalg.multi_dot)(
-                        seq_unaries[:, ::-1, :, :]
-                    )
-                else:
-                    seq_unaries = seq_unaries[:, 0]
-            # Compoute the compound of the unaries
-            compounds = [
-                jax.vmap(compute_compound, in_axes=(0, None))(seq_unaries, order)
-                for order in range(num_qubits + 1)
-            ]
-            # Update the projections onto the subspaces
-            deltas_betas = [compound @ beta for compound, beta in zip(compounds, betas)]
-            # Compute the mean of the observable in every subspace
-            # For the actions, the bounds are [0, 1]
-            deltas_ranges = [(0, 1) for _ in range(len(deltas_betas))]
-            deltas_dist = [
-                beta**2 @ jnp.linspace(*delta_range, beta.shape[-1])
-                for beta, delta_range in zip(deltas_betas, deltas_ranges)
-            ]
-            # Compute the expected delta of the observable over all subspaces
-            deltas_exp = [alpha**2 * dist for alpha, dist in zip(alphas, deltas_dist)]
-            deltas_exp = jnp.array(deltas_exp).sum(0)
             # Duplicate the deltas for the next step
             if time_step == 0:
                 seq_deltas_exp = [jnp.repeat(deltas_exp, seq_jumps.shape[0], axis=0)]

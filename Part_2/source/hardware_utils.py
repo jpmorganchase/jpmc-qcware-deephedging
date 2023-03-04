@@ -21,8 +21,6 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from . import hardware_config
-
 
 def counter_to_dict(c):
     """Converts counter returned by pytket get_counts function
@@ -81,12 +79,15 @@ def prepare_circuit_compound(rbs_idxs, time_step, num_qubits, seq_jumps, thetas)
     return qiskit_circuit
 
 
-def run_circuit_compound(circs, num_qubits, device_id, backend_name="quantinuum_H1-1"):
+def run_circuit_compound(
+    circs,
+    num_qubits,
+    device_id,
+    global_info,
+    backend_name="quantinuum_H1-1",
+):
 
-    global_number_of_circuits_executed = (
-        hardware_config.global_number_of_circuits_executed
-    )
-    global_hardware_run_results_dict = hardware_config.global_hardware_run_results_dict
+    global_number_of_circuits_executed, global_hardware_run_results_dict = global_info
     results = np.zeros((len(circs), 2**num_qubits))
 
     global_number_of_circuits_executed += len(circs)
@@ -249,8 +250,7 @@ def run_circuit_compound(circs, num_qubits, device_id, backend_name="quantinuum_
         results[j] = np.sqrt(
             [filtered_counts[k] / num_postselected for k in sorted(filtered_counts)]
         )
-    hardware_config.global_number_of_circuits_executed = (
-        global_number_of_circuits_executed
+    return results, (
+        global_number_of_circuits_executed,
+        global_hardware_run_results_dict,
     )
-    hardware_config.global_hardware_run_results_dict = global_hardware_run_results_dict
-    return results
