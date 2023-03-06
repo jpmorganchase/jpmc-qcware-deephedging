@@ -42,7 +42,7 @@ LAYERS = [
     "noisy_pyramid",
 ]
 
-MODELS = ["simple", "recurrent", "lstm", "attention", "fully_quantum"]
+MODELS = ["simple", "recurrent", "lstm", "attention"]
 
 
 @dataclass
@@ -116,8 +116,6 @@ def make_model(model_type: str = "simple") -> ModuleFn:
         model_func = models.lstm_network
     elif model_type == "attention":
         model_func = models.attention_network
-    elif model_type == "fully_quantum":
-        model_func = models.quantum_network
     return model_func
 
 
