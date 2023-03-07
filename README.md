@@ -2,16 +2,14 @@
 
 A collaborative research project with source code to be released as an open source archived repo on paper publication.
 
+## Reproducing the results in the manuscript
 
-## File structure
-- `models.py` : Deep hedging model configurations; simple, recurrent, lstm, attention
-- `main.py` : Main script for running an experiment
-- `train.py`: Deep hedging model training
-- `utils.py`: Specification of all Hyperparameters and util functions
-- `BlackScholes.py`: Implementation of Black Scholes using Quantlib
-- `EuropeanCall.py` : Implementation of European Call option using Quantlib
-
-Open Source @ JPMorgan Chase 2022
+- Table 1:  `Part_1/train_and_test.ipynb`
+- Table 2: `Part_1/hardware.ipynb`
+- Table 3: `Part_1/hardware.ipynb`
+- Table 4: `Part_2/test.ipynb`
+- Table 5:  `Part_2/hardware.ipynb`
+- Table 6: `Part_2/hardware.ipynb`
 
 ## OmniQ setup (JPMC) 
 
