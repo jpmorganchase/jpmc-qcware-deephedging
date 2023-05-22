@@ -47,7 +47,7 @@ lz4==4.0.2
 MarkupSafe==2.1.2
 matplotlib==3.6.1
 matplotlib-inline==0.1.6
-mpmath==1.2.1
+mpmath==1.3.0
 msal==1.21.0
 multidict==6.0.2
 nest-asyncio==1.5.6
