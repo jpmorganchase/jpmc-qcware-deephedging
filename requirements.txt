@@ -96,7 +96,7 @@ tqdm==4.64.1
 traitlets==5.5.0
 tweedledum==1.1.1
 typing_extensions==4.4.0
-urllib3==1.26.12
+urllib3==1.26.17
 wcwidth==0.2.5
 websocket-client==1.4.1
 websockets==10.4
