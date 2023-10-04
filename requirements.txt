@@ -54,7 +54,7 @@ parso==0.8.3
 pbr==5.11.0
 pexpect==4.8.0
 pickleshare==0.7.5
-Pillow==9.2.0
+Pillow==10.0.1
 ply==3.11
 prompt-toolkit==3.0.31
 psutil==5.9.3
