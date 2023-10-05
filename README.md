@@ -1,6 +1,6 @@
-# JPMC & QCWare Deep Hedging
+# Code for paper "Quantum Deep Hedging"
 
-A collaborative research project with source code to be released as an open source archived repo on paper publication.
+This repository contains the code used to produce results in the paper "Quantum Deep Hedging" (arXiv:2303.16585).
 
 ## Reproducing the results in the manuscript
 
@@ -11,6 +11,12 @@ A collaborative research project with source code to be released as an open sour
 - Table 5:  `Part_2/hardware.ipynb`
 - Table 6: `Part_2/hardware.ipynb`
 
-## OmniQ setup (JPMC) 
-
-When creating an instance to use the code on OmniQ, *do not* run the standard `setup.sh` script. Instead, use the `omniq_setup.sh` script provided in this repo.
+## Citing the work
+```
+@article{2303.16585,
+Author = {El Amine Cherrat and Snehal Raj and Iordanis Kerenidis and Abhishek Shekhar and Ben Wood and Jon Dee and Shouvanik Chakrabarti and Richard Chen and Dylan Herman and Shaohan Hu and Pierre Minssen and Ruslan Shaydulin and Yue Sun and Romina Yalovetzky and Marco Pistoia},
+Title = {Quantum Deep Hedging},
+Year = {2023},
+Journal = {arXiv:2303.16585},
+}
+```
