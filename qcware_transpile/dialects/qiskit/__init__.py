@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright : JP Morgan Chase & Co and QC Ware
 """
 Qiskit is IBM's rather complex toolkit, including many features such as
 decomposition to primitive gates and transpilation.

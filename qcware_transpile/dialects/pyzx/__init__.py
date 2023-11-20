@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright : JP Morgan Chase & Co and QC Ware
 """
 Pyzx is a toolkit for manipulating circuits using the ZX
 calculus.

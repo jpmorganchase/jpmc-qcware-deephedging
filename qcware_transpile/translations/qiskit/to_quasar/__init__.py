@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright : JP Morgan Chase & Co and QC Ware
 from qcware_transpile.matching import (TranslationRule, TranslationSet,
                                        trivial_rule, trivial_rules,
                                        translated_gates, untranslated_gates,

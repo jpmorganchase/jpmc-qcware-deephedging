@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright : JP Morgan Chase & Co and QC Ware
 import attr
 import itertools
 from typing import Set, Tuple, Sequence, Mapping, Any, Optional

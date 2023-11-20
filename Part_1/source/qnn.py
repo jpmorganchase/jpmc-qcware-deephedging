@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright : JP Morgan Chase & Co and QC Ware
 import sys
 from typing import Callable, List, Mapping, NamedTuple, Optional, Sequence, Tuple, Union
 

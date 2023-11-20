@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright : JP Morgan Chase & Co and QC Ware
 """
 QSharp is Microsoft's toolkit.  Initial interaction will be somewhat limited.
 """

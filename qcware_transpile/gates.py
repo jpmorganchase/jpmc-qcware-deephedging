@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright : JP Morgan Chase & Co and QC Ware
 from pyrsistent import pvector, pset, pmap
 from pyrsistent.typing import PSet, PMap
 from icontract import require  # type: ignore

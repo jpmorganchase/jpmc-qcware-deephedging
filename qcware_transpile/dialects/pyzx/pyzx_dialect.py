@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright : JP Morgan Chase & Co and QC Ware
 import pyzx  # type: ignore
 from qcware_transpile.gates import GateDef, Dialect
 from qcware_transpile.circuits import Circuit

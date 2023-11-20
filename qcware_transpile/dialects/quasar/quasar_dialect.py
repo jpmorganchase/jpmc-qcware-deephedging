@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright : JP Morgan Chase & Co and QC Ware
 from quasar.circuit import Gate  # type: ignore
 from quasar.circuit import Circuit as QuasarCircuit  # type: ignore
 from pyrsistent import pset

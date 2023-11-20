@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright : JP Morgan Chase & Co and QC Ware
 """
 Unfortunately, Qsharp, being in a separate language and library,
 doesn't lend itself to introspection, so our usual approach

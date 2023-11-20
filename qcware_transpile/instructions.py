@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright : JP Morgan Chase & Co and QC Ware
 import attr
 from typing import Mapping, Any, Set, Tuple
 from pyrsistent import pmap
